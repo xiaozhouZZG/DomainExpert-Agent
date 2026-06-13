@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# 虚拟环境
+venv/
+env/
+ENV/
+
+# 数据库（使用 volume 挂载）
+*.db
+*.db-journal
+
+# 日志
+*.log
+logs/
+
+# 测试
+tests/
+test_*.py
+*_test.py
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+
+# 文档
+*.md
+!README.md
+
+# 临时文件
+*.tmp
+*.bak
+.DS_Store
+
+# 部署相关
+deploy.sh
+start.sh
+nginx.conf
+enterprise-agent.service
+DEPLOYMENT.md
+
+# 微调模块（不进生产镜像，仅本地训练用）
+finetune/
+*.ipynb
+
+# 文档目录（诊断报告等，不进镜像）
+docs/
+
+# 备份文件
+*.bak
+STARTUP_SUCCESS.md
+app.log

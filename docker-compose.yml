@@ -1,0 +1,49 @@
+services:
+  enterprise-agent:
+    build: .
+    container_name: enterprise-agent
+    restart: unless-stopped
+    ports:
+      - "8802:8802"
+    volumes:
+      - ./data:/app/data
+      - ./data/knowledge:/app/data/knowledge
+      - ./.cache:/app/.cache
+    env_file:
+      - .env
+    environment:
+      # 强制使用 LangGraph 引擎
+      - ENGINE=langgraph
+      # 强制使用向量检索
+      - RAG_MODE=vector
+      # 端口配置
+      - API_HOST=0.0.0.0
+      - API_PORT=8802
+      # 数据库路径
+      - DB_PATH=/app/data/platform.db
+      # 强制离线模式（不联网下载模型）
+      - HF_HUB_OFFLINE=1
+      - TRANSFORMERS_OFFLINE=1
+      # 本地模型路径
+      - EMBEDDING_MODEL_PATH=/app/models/bge-small-zh-v1.5
+      - RERANKER_MODEL_PATH=/app/models/bge-reranker-base
+      # 从 .env 读取的变量
+      - LLM_PROTOCOL=${LLM_PROTOCOL:-openai}
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_BASE_URL=${LLM_BASE_URL:-https://api.openai.com/v1}
+      - LLM_MODEL=${LLM_MODEL:-gpt-4}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8802/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - agent-network
+
+networks:
+  agent-network:
+    driver: bridge
+

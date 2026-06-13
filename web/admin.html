@@ -1,0 +1,1646 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>后台管理 - EnterpriseAgent</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com?v=4"></script>
+
+    <!-- Chart.js CDN - 使用国内镜像 -->
+    <script src="https://cdn.bootcdn.net/ajax/libs/Chart.js/4.4.0/chart.umd.min.js?v=4"></script>
+    <script>
+        // Chart.js 备用加载（动态插入，避免 document.write）
+        if (typeof Chart === 'undefined') {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+            script.async = false;
+            document.head.appendChild(script);
+        }
+    </script>
+
+    <!-- Lucide Icons - 内联方案 -->
+    <script>
+        // 简化的图标系统，避免 CDN 问题
+        window.lucide = {
+            createIcons: function() {
+                // 替换所有 data-lucide 为 SVG
+                document.querySelectorAll('[data-lucide]').forEach(el => {
+                    const icon = el.getAttribute('data-lucide');
+                    const svg = this.getIcon(icon);
+                    if (svg) {
+                        el.innerHTML = svg;
+                        el.removeAttribute('data-lucide');
+                    }
+                });
+            },
+            getIcon: function(name) {
+                const icons = {
+                    'lock': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+                    'log-in': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" x2="3" y1="12" y2="12"/></svg>',
+                    'bot': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>',
+                    'layout-dashboard': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>',
+                    'book-open': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>',
+                    'message-square': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+                    'settings': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>',
+                    'log-out': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>',
+                    'message-circle': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>',
+                    'dollar-sign': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
+                    'zap': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>',
+                    'database': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>',
+                    'plus': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>',
+                    'upload': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>',
+                    'file-text': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>',
+                    'trash-2': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>',
+                    'x': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
+                    'user': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+                    'inbox': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>',
+                    'cpu': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg>',
+                    'brain': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg>',
+                    'package': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>',
+                    'search': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>',
+                    'list': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>',
+                    'check-circle': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>',
+                    'alert-circle': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>',
+                    'info': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>'
+                };
+                return icons[name] || '';
+            }
+        };
+    </script>
+
+    <!-- Google Fonts - Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        * { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+        /* 自定义滚动条 */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* 加载动画 */
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .animate-spin { animation: spin 1s linear infinite; }
+
+        /* 骨架屏 */
+        @keyframes skeleton { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .skeleton { animation: skeleton 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; background: #e2e8f0; }
+
+        /* Toast 动画 */
+        @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideOutRight { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+        .toast-enter { animation: slideInRight 0.3s ease-out; }
+        .toast-exit { animation: slideOutRight 0.3s ease-in; }
+
+        /* Chart 容器 */
+        .chart-container { position: relative; height: 300px; }
+
+        /* Line clamp - 限制行数 */
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900">
+
+    <!-- 登录界面 -->
+    <div id="loginScreen" class="min-h-screen flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-lg border border-slate-200 p-8 w-full max-w-md">
+            <div class="text-center mb-6">
+                <div class="inline-flex items-center justify-center w-12 h-12 bg-indigo-100 rounded-lg mb-4">
+                    <i data-lucide="lock" class="w-6 h-6 text-indigo-600"></i>
+                </div>
+                <h1 class="text-2xl font-semibold text-slate-900">管理员登录</h1>
+                <p class="text-slate-600 mt-2">请输入管理员令牌以继续</p>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">访问令牌</label>
+                    <input type="password" id="tokenInput" placeholder="输入 Token"
+                        class="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition">
+                </div>
+
+                <button onclick="login()"
+                    class="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium py-2.5 rounded-lg transition inline-flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/>
+                    </svg>
+                    <span>登录</span>
+                </button>
+
+                <div id="loginError" class="hidden bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm"></div>
+            </div>
+
+            <div class="mt-6 text-center text-sm text-slate-500">
+                默认令牌: <code class="bg-slate-100 px-2 py-1 rounded">demo-token</code>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主应用界面 -->
+    <div id="mainApp" class="hidden min-h-screen flex">
+
+        <!-- 侧边栏 -->
+        <aside class="w-64 bg-white border-r border-slate-200 flex flex-col">
+            <!-- Logo -->
+            <div class="p-6 border-b border-slate-200">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
+                        <i data-lucide="bot" class="w-6 h-6 text-white"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-semibold text-slate-900">EnterpriseAgent</h2>
+                        <p class="text-xs text-slate-500">后台管理</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 导航 -->
+            <nav class="flex-1 p-4 space-y-1">
+                <a href="#" onclick="switchPage('dashboard')" data-page="dashboard"
+                    class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg transition hover:bg-slate-50 active">
+                    <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                    <span class="font-medium">仪表盘</span>
+                </a>
+                <a href="#" onclick="switchPage('knowledge')" data-page="knowledge"
+                    class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg transition hover:bg-slate-50">
+                    <i data-lucide="book-open" class="w-5 h-5"></i>
+                    <span class="font-medium">知识库</span>
+                </a>
+                <a href="#" onclick="switchPage('conversations')" data-page="conversations"
+                    class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg transition hover:bg-slate-50">
+                    <i data-lucide="message-square" class="w-5 h-5"></i>
+                    <span class="font-medium">对话记录</span>
+                </a>
+                <a href="#" onclick="switchPage('model-config')" data-page="model-config"
+                    class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg transition hover:bg-slate-50">
+                    <i data-lucide="zap" class="w-5 h-5"></i>
+                    <span class="font-medium">模型设置</span>
+                </a>
+                <a href="#" onclick="switchPage('traces')" data-page="traces"
+                    class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg transition hover:bg-slate-50">
+                    <i data-lucide="list" class="w-5 h-5"></i>
+                    <span class="font-medium">执行轨迹</span>
+                </a>
+                <a href="#" onclick="switchPage('system')" data-page="system"
+                    class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg transition hover:bg-slate-50">
+                    <i data-lucide="settings" class="w-5 h-5"></i>
+                    <span class="font-medium">系统状态</span>
+                </a>
+                <a href="#" onclick="switchPage('logs')" data-page="logs"
+                    class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg transition hover:bg-slate-50">
+                    <i data-lucide="list" class="w-5 h-5"></i>
+                    <span class="font-medium">请求日志</span>
+                </a>
+            </nav>
+
+            <!-- 底部信息 -->
+            <div class="p-4 border-t border-slate-200">
+                <button onclick="logout()"
+                    class="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-slate-600 hover:bg-slate-50 rounded-lg transition">
+                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"/>
+                    </svg>
+                    <span class="font-medium">退出登录</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- 主内容区 -->
+        <main class="flex-1 flex flex-col overflow-hidden">
+            <!-- 顶部栏 -->
+            <header class="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between">
+                <div>
+                    <h1 id="pageTitle" class="text-2xl font-semibold text-slate-900">仪表盘</h1>
+                    <p id="pageSubtitle" class="text-sm text-slate-600 mt-1">系统运行概览</p>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <!-- 引擎模式徽章 -->
+                    <div id="engineBadge" class="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-lg">
+                        <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span class="text-sm font-medium text-slate-700">加载中...</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- 内容滚动区 -->
+            <div class="flex-1 overflow-y-auto p-8">
+                <!-- Toast 容器 -->
+                <div id="toastContainer" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
+                <!-- 仪表盘页面 -->
+                <div id="pageDashboard" class="page-content">
+                    <!-- 统计卡片 -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                    <i data-lucide="message-circle" class="w-5 h-5 text-blue-600"></i>
+                                </div>
+                            </div>
+                            <div class="text-3xl font-bold text-slate-900 mb-1" id="statConversations">-</div>
+                            <div class="text-sm text-slate-600">对话总数</div>
+                            <div class="text-xs text-slate-500 mt-2">消息数: <span id="statMessages">-</span></div>
+                        </div>
+
+                        <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                                    <i data-lucide="check-circle" class="w-5 h-5 text-green-600"></i>
+                                </div>
+                            </div>
+                            <div class="text-3xl font-bold text-slate-900 mb-1" id="statKBHitRate">-</div>
+                            <div class="text-sm text-slate-600">知识库命中率</div>
+                            <div class="text-xs text-slate-500 mt-2">命中 <span id="statHits">-</span> / 总计 <span id="statTotal">-</span></div>
+                        </div>
+
+                        <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                                    <i data-lucide="zap" class="w-5 h-5 text-purple-600"></i>
+                                </div>
+                            </div>
+                            <div class="text-3xl font-bold text-slate-900 mb-1" id="statDuration">-</div>
+                            <div class="text-sm text-slate-600">平均响应</div>
+                            <div class="text-xs text-slate-500 mt-2">毫秒</div>
+                        </div>
+
+                        <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                                    <i data-lucide="database" class="w-5 h-5 text-orange-600"></i>
+                                </div>
+                            </div>
+                            <div class="text-3xl font-bold text-slate-900 mb-1" id="statKB">-</div>
+                            <div class="text-sm text-slate-600">知识库文档</div>
+                            <div class="text-xs text-slate-500 mt-2">总文档数</div>
+                        </div>
+                    </div>
+
+                    <!-- 图表区域 -->
+                    <div class="grid grid-cols-1 gap-6">
+                        <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                            <h3 class="text-lg font-semibold text-slate-900 mb-4">Agent 调用统计</h3>
+                            <div class="chart-container">
+                                <canvas id="agentChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 知识库页面 -->
+                <div id="pageKnowledge" class="page-content hidden">
+                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm">
+                        <!-- 头部操作栏 -->
+                        <div id="kbHeader" class="p-6 border-b border-slate-200 flex items-center justify-between">
+                            <div>
+                                <h3 class="text-lg font-semibold text-slate-900">文档列表</h3>
+                                <p class="text-sm text-slate-600 mt-1">共 <span id="kbTotal">0</span> 个文档</p>
+                            </div>
+                            <button onclick="showUploadModal()"
+                                class="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition">
+                                <svg class="w-5 h-5 shrink-0 -ml-0.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                                </svg>
+                                <span class="leading-none">上传文档</span>
+                            </button>
+                        </div>
+
+                        <!-- 文档列表 -->
+                        <div id="kbList" class="divide-y divide-slate-200"></div>
+
+                        <!-- 空状态 -->
+                        <div id="kbEmpty" class="hidden p-16 flex items-center justify-center">
+                            <div class="flex flex-col items-center max-w-sm">
+                                <div class="inline-flex items-center justify-center w-16 h-16 bg-slate-100 rounded-full mb-3">
+                                    <i data-lucide="file-text" class="w-8 h-8 text-slate-400"></i>
+                                </div>
+                                <h4 class="text-lg font-semibold text-slate-900 mb-1">还没有文档</h4>
+                                <p class="text-sm text-slate-600 mb-5 text-center">上传第一个文档开始构建知识库</p>
+                                <button onclick="showUploadModal()"
+                                    class="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium rounded-lg transition">
+                                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+                                    </svg>
+                                    <span>上传文档</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 对话记录页面 -->
+                <div id="pageConversations" class="page-content hidden">
+                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm">
+                        <div class="p-6 border-b border-slate-200">
+                            <div class="flex items-center gap-4">
+                                <input type="text" id="searchSessionId" placeholder="按 Session ID 搜索"
+                                    class="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                <button onclick="searchConversations()"
+                                    class="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition">
+                                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
+                                    </svg>
+                                    <span>搜索</span>
+                                </button>
+                                <button onclick="loadConversations()"
+                                    class="inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium rounded-lg transition">
+                                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
+                                    </svg>
+                                    <span>显示全部</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="convList" class="divide-y divide-slate-200"></div>
+
+                        <div id="convEmpty" class="hidden p-12 text-center">
+                            <div class="inline-flex items-center justify-center w-16 h-16 bg-slate-100 rounded-full mb-4">
+                                <i data-lucide="inbox" class="w-8 h-8 text-slate-400"></i>
+                            </div>
+                            <h4 class="text-lg font-medium text-slate-900 mb-2">暂无对话记录</h4>
+                            <p class="text-slate-600">系统还没有处理任何对话</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 系统状态页面 -->
+                <div id="pageSystem" class="page-content hidden">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6" id="systemStatus"></div>
+                </div>
+
+                <!-- 请求日志页面 -->
+                <div id="pageLogs" class="page-content hidden">
+                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm">
+                        <div class="p-6 border-b border-slate-200 flex justify-between items-center">
+                            <div>
+                                <h2 class="text-xl font-semibold text-slate-900">请求日志</h2>
+                                <p class="text-sm text-slate-600 mt-1">最近50条API请求记录</p>
+                            </div>
+                            <button onclick="loadLogs()" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">
+                                <i data-lucide="refresh-cw" class="w-4 h-4 inline"></i> 刷新
+                            </button>
+                        </div>
+                        <div id="logsContainer" class="divide-y divide-slate-100"></div>
+                    </div>
+                </div>
+
+                <!-- 模型设置页面 -->
+                <div id="pageModelConfig" class="page-content hidden">
+                    <div class="max-w-4xl mx-auto">
+                        <div class="bg-white rounded-xl border border-slate-200 shadow-sm">
+                            <div class="p-6 border-b border-slate-200">
+                                <h2 class="text-xl font-semibold text-slate-900">LLM 模型连接设置</h2>
+                                <p class="text-sm text-slate-600 mt-1">配置 OpenAI 兼容的第三方大模型服务</p>
+                            </div>
+
+                            <div class="p-6 space-y-6">
+                                <!-- 厂商预设 -->
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">厂商预设</label>
+                                    <select id="modelProvider" onchange="handleProviderChange()"
+                                        class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                        <option value="custom">自定义</option>
+                                        <option value="deepseek">DeepSeek</option>
+                                        <option value="qwen">通义千问</option>
+                                        <option value="glm">智谱GLM</option>
+                                        <option value="moonshot">月之暗面</option>
+                                        <option value="openai">OpenAI</option>
+                                        <option value="claude">Claude (Anthropic)</option>
+                                        <option value="gemini_openai">Gemini (OpenAI兼容)</option>
+                                        <option value="gemini">Gemini (原生)</option>
+                                    </select>
+                                </div>
+
+                                <!-- 协议类型（隐藏，自动设置） -->
+                                <input type="hidden" id="modelProtocol" value="openai">
+
+                                <!-- Base URL -->
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">Base URL</label>
+                                    <input type="text" id="modelBaseUrl" placeholder="https://api.deepseek.com/v1"
+                                        class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                    <p class="text-xs text-slate-500 mt-1">必须以 /v1 结尾</p>
+                                </div>
+
+                                <!-- API Key -->
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">API Key</label>
+                                    <input type="password" id="modelApiKey" placeholder="sk-..."
+                                        class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                    <p class="text-xs text-slate-500 mt-1">保存后将加密存储</p>
+                                </div>
+
+                                <!-- 模型 -->
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">模型</label>
+                                    <div class="flex gap-2">
+                                        <select id="modelName"
+                                            class="flex-1 px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                            <option value="">请先获取模型列表</option>
+                                        </select>
+                                        <button onclick="fetchModels()"
+                                            class="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-600 hover:bg-slate-700 text-white font-medium rounded-lg transition">
+                                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/>
+                                            </svg>
+                                            <span>获取模型列表</span>
+                                        </button>
+                                    </div>
+                                    <p class="text-xs text-slate-500 mt-1" id="modelHint">点击「获取模型列表」自动拉取，或手动输入模型名</p>
+                                </div>
+
+                                <!-- 手动输入模型名（默认隐藏） -->
+                                <div id="manualModelInput" class="hidden">
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">手动输入模型名</label>
+                                    <input type="text" id="manualModelName" placeholder="例如: deepseek-chat"
+                                        class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                </div>
+
+                                <!-- 操作按钮 -->
+                                <div class="flex gap-3 pt-4 border-t border-slate-200">
+                                    <button onclick="testConnection()"
+                                        class="inline-flex items-center gap-2 px-4 py-2.5 border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium rounded-lg transition">
+                                        <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M9.348 14.651a3.75 3.75 0 010-5.303m5.304 0a3.75 3.75 0 010 5.303m-7.425 2.122a6.75 6.75 0 010-9.546m9.546 0a6.75 6.75 0 010 9.546M5.106 18.894c-3.808-3.808-3.808-9.98 0-13.789m13.788 0c3.808 3.808 3.808 9.981 0 13.79M12 12h.008v.007H12V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/>
+                                        </svg>
+                                        <span>测试连接</span>
+                                    </button>
+                                    <button onclick="saveLLMConfig()"
+                                        class="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition">
+                                        <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                                        </svg>
+                                        <span>保存配置</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 当前配置信息 -->
+                        <div class="mt-6 bg-slate-50 rounded-xl border border-slate-200 p-6">
+                            <h3 class="text-sm font-semibold text-slate-700 mb-3">当前配置</h3>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-slate-600">厂商:</span>
+                                    <span class="font-medium text-slate-900" id="currentProvider">-</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-slate-600">Base URL:</span>
+                                    <span class="font-medium text-slate-900 truncate max-w-xs" id="currentBaseUrl">-</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-slate-600">API Key:</span>
+                                    <span class="font-medium text-slate-900" id="currentApiKey">-</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-slate-600">模型:</span>
+                                    <span class="font-medium text-slate-900" id="currentModel">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 执行轨迹页面 -->
+                <div id="pageTraces" class="page-content hidden">
+                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm">
+                        <div class="p-6 border-b border-slate-200">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h3 class="text-lg font-semibold text-slate-900">执行轨迹列表</h3>
+                                    <p class="text-sm text-slate-600 mt-1">查看每条请求的详细执行过程</p>
+                                </div>
+                                <button onclick="loadExecutionTraces()"
+                                    class="inline-flex items-center gap-2 px-4 py-2.5 border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium rounded-lg transition">
+                                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/>
+                                    </svg>
+                                    <span>刷新</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="tracesList" class="divide-y divide-slate-200"></div>
+
+                        <div id="tracesEmpty" class="hidden p-12 text-center">
+                            <div class="inline-flex items-center justify-center w-16 h-16 bg-slate-100 rounded-full mb-4">
+                                <i data-lucide="list" class="w-8 h-8 text-slate-400"></i>
+                            </div>
+                            <h4 class="text-lg font-medium text-slate-900 mb-2">暂无执行轨迹</h4>
+                            <p class="text-slate-600">系统还没有处理任何请求</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- 上传文档模态框 -->
+    <div id="uploadModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl">
+            <div class="p-6 border-b border-slate-200 flex items-center justify-between">
+                <h3 class="text-lg font-semibold">上传文档</h3>
+                <button onclick="closeUploadModal()" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <!-- 文件选择 -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">选择文件</label>
+                    <input type="file" id="docFile" accept=".pdf,.docx,.md,.txt"
+                        class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <p class="text-xs text-slate-500 mt-1">支持格式: PDF、Word(.docx)、Markdown(.md)、文本(.txt)，最大 50MB</p>
+                </div>
+
+                <!-- 或者输入文本 -->
+                <div class="relative">
+                    <div class="absolute inset-0 flex items-center">
+                        <div class="w-full border-t border-slate-200"></div>
+                    </div>
+                    <div class="relative flex justify-center text-sm">
+                        <span class="px-2 bg-white text-slate-500">或直接输入文本</span>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">文档来源</label>
+                    <input type="text" id="docSource" placeholder="例如：用户手册、FAQ"
+                        class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">文档内容</label>
+                    <textarea id="docContent" rows="6" placeholder="输入文档内容"
+                        class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"></textarea>
+                </div>
+
+                <!-- 上传进度 -->
+                <div id="uploadProgress" class="hidden">
+                    <div class="flex items-center gap-2 text-sm text-slate-600">
+                        <div class="animate-spin w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full"></div>
+                        <span id="uploadProgressText">正在上传...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="p-6 border-t border-slate-200 flex justify-end gap-3">
+                <button onclick="closeUploadModal()"
+                    class="inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium rounded-lg transition">
+                    <span>取消</span>
+                </button>
+                <button onclick="uploadDocument()"
+                    class="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition">
+                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+                    </svg>
+                    <span>上传</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 文档详情模态框 -->
+    <div id="docDetailModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+            <div class="p-6 border-b border-slate-200 flex items-center justify-between">
+                <div>
+                    <h3 class="text-xl font-semibold text-slate-900" id="docDetailTitle">文档详情</h3>
+                    <p class="text-sm text-slate-500 mt-1" id="docDetailMeta"></p>
+                </div>
+                <button onclick="closeDocDetailModal()" class="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-100 rounded-lg transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto flex-1">
+                <div class="prose prose-slate max-w-none">
+                    <pre id="docDetailContent" class="whitespace-pre-wrap text-sm text-slate-700 bg-slate-50 p-4 rounded-lg border border-slate-200"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 执行轨迹详情模态框 -->
+    <div id="traceDetailModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+            <div class="p-6 border-b border-slate-200 flex items-center justify-between">
+                <div>
+                    <h3 class="text-xl font-semibold text-slate-900">执行轨迹详情</h3>
+                    <p class="text-sm text-slate-500 mt-1" id="traceDetailMeta"></p>
+                </div>
+                <button onclick="closeTraceDetailModal()" class="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-100 rounded-lg transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto flex-1">
+                <!-- 基本信息 -->
+                <div class="mb-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span class="text-slate-600">Session ID:</span>
+                            <span class="font-mono text-slate-900 ml-2" id="traceSessionId">-</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-600">Trace ID:</span>
+                            <span class="font-mono text-slate-900 ml-2" id="traceTraceId">-</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-600">Agent:</span>
+                            <span class="font-medium text-slate-900 ml-2" id="traceAgent">-</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-600">引擎:</span>
+                            <span class="font-medium text-slate-900 ml-2" id="traceEngine">-</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-600">总耗时:</span>
+                            <span class="font-medium text-slate-900 ml-2" id="traceLatency">-</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-600">知识库命中:</span>
+                            <span class="font-medium text-slate-900 ml-2" id="traceKBHit">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 执行步骤时间线 -->
+                <div class="mb-6">
+                    <h4 class="text-sm font-semibold text-slate-900 mb-3">执行步骤</h4>
+                    <div id="traceSteps" class="space-y-3"></div>
+                </div>
+
+                <!-- 相关对话消息 -->
+                <div>
+                    <h4 class="text-sm font-semibold text-slate-900 mb-3">相关对话</h4>
+                    <div id="traceMessages" class="space-y-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let token = '';
+        let charts = {};
+
+        // ========== 工具函数 ==========
+
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast-enter flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg ${
+                type === 'success' ? 'bg-green-50 border border-green-200 text-green-800' :
+                type === 'error' ? 'bg-red-50 border border-red-200 text-red-800' :
+                'bg-blue-50 border border-blue-200 text-blue-800'
+            }`;
+            toast.innerHTML = `
+                <i data-lucide="${type === 'success' ? 'check-circle' : type === 'error' ? 'alert-circle' : 'info'}" class="w-5 h-5"></i>
+                <span class="font-medium">${message}</span>
+            `;
+            document.getElementById('toastContainer').appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.classList.remove('toast-enter');
+                toast.classList.add('toast-exit');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function formatNumber(num) {
+            return num.toLocaleString('zh-CN');
+        }
+
+        function formatCurrency(num) {
+            return `¥${num.toFixed(2)}`;
+        }
+
+        function formatDateTime(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleString('zh-CN', {
+                timeZone: 'Asia/Shanghai',
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit', second: '2-digit'
+            });
+        }
+
+        async function apiCall(url, options = {}) {
+            try {
+                const response = await fetch(url, {
+                    ...options,
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                return await response.json();
+            } catch (error) {
+                showToast(`请求失败: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+
+        // ========== 登录 / 登出 ==========
+
+        async function login() {
+            token = document.getElementById('tokenInput').value.trim();
+            if (!token) {
+                showLoginError('请输入 Token');
+                return;
+            }
+
+            try {
+                await apiCall('/api/admin/dashboard');
+                localStorage.setItem('adminToken', token);
+                document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('mainApp').classList.remove('hidden');
+                lucide.createIcons();
+                loadDashboard();
+                loadSystemBadge();
+            } catch {
+                showLoginError('Token 无效，请重试');
+            }
+        }
+
+        function showLoginError(msg) {
+            const el = document.getElementById('loginError');
+            el.textContent = msg;
+            el.classList.remove('hidden');
+        }
+
+        function logout() {
+            localStorage.removeItem('adminToken');
+            location.reload();
+        }
+
+        // ========== 页面切换 ==========
+
+        function switchPage(page) {
+            // 更新导航状态
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active', 'bg-indigo-50', 'text-indigo-600');
+                item.classList.add('text-slate-600');
+            });
+            const activeNav = document.querySelector(`[data-page="${page}"]`);
+            activeNav.classList.add('active', 'bg-indigo-50', 'text-indigo-600');
+            activeNav.classList.remove('text-slate-600');
+
+            // 隐藏所有页面
+            document.querySelectorAll('.page-content').forEach(p => p.classList.add('hidden'));
+
+            // 转换页面名为驼峰格式
+            const pageId = page.split('-').map((word, index) =>
+                index === 0 ? word : word.charAt(0).toUpperCase() + word.slice(1)
+            ).join('');
+            document.getElementById(`page${pageId.charAt(0).toUpperCase() + pageId.slice(1)}`).classList.remove('hidden');
+
+            // 更新标题
+            const titles = {
+                dashboard: ['仪表盘', '系统运行概览'],
+                knowledge: ['知识库', '文档管理'],
+                conversations: ['对话记录', '历史对话查询'],
+                'model-config': ['模型设置', '配置 LLM 连接'],
+                traces: ['执行轨迹', '请求执行过程详情'],
+                system: ['系统状态', '环境与配置信息'],
+                logs: ['请求日志', '实时API调用记录']
+            };
+            document.getElementById('pageTitle').textContent = titles[page][0];
+            document.getElementById('pageSubtitle').textContent = titles[page][1];
+
+            // 加载数据
+            if (page === 'dashboard') loadDashboard();
+            else if (page === 'knowledge') loadKnowledge();
+            else if (page === 'conversations') loadConversations();
+            else if (page === 'model-config') loadModelConfig();
+            else if (page === 'traces') loadExecutionTraces();
+            else if (page === 'system') loadSystemStatus();
+            else if (page === 'logs') loadLogs();
+        }
+
+        // ========== 仪表盘 ==========
+
+        async function loadDashboard() {
+            try {
+                const data = await apiCall('/api/admin/dashboard');
+
+                // 更新统计卡片
+                document.getElementById('statConversations').textContent = formatNumber(data.conversations.total);
+                document.getElementById('statMessages').textContent = formatNumber(data.conversations.total_messages);
+
+                // 知识库命中率
+                const hitRate = data.kb_hit_rate.overall_rate;
+                document.getElementById('statKBHitRate').textContent = hitRate !== null ? `${hitRate}%` : '暂无数据';
+                document.getElementById('statHits').textContent = formatNumber(data.kb_hit_rate.total_hits);
+                document.getElementById('statTotal').textContent = formatNumber(data.kb_hit_rate.total_requests);
+
+                document.getElementById('statDuration').textContent = (data.performance.avg_latency_ms || 0).toFixed(0);
+                document.getElementById('statKB').textContent = formatNumber(data.knowledge_base.total_documents);
+
+                // 渲染 Agent 调用图表
+                renderAgentChart(data.agents);
+            } catch (error) {
+                console.error('加载仪表盘失败:', error);
+            }
+        }
+
+        function renderAgentChart(agents) {
+            const ctx = document.getElementById('agentChart');
+            if (charts.agent) charts.agent.destroy();
+
+            if (!agents || agents.length === 0) {
+                ctx.parentElement.innerHTML = '<div class="flex items-center justify-center h-64 text-slate-400">暂无数据</div>';
+                return;
+            }
+
+            // Agent 显示名映射
+            const agentNames = {
+                'customer_service_agent': '客户服务专家',
+                'order_agent': '订单履约专家',
+                'analytics_agent': '数据分析专家',
+                'report_agent': '报表生成专家'
+            };
+
+            charts.agent = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: agents.map(a => agentNames[a.agent] || a.agent.replace('_agent', '')),
+                    datasets: [{
+                        label: '调用次数',
+                        data: agents.map(a => a.count),
+                        backgroundColor: 'rgb(99, 102, 241)',
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { precision: 0 } }
+                    }
+                }
+            });
+        }
+
+        // ========== 知识库 ==========
+
+        async function loadKnowledge() {
+            try {
+                const data = await apiCall('/api/admin/knowledge/list');
+                const list = document.getElementById('kbList');
+                const empty = document.getElementById('kbEmpty');
+                const header = document.getElementById('kbHeader');
+
+                document.getElementById('kbTotal').textContent = data.total;
+
+                if (data.documents.length === 0) {
+                    list.innerHTML = '';
+                    header.classList.add('hidden');
+                    empty.classList.remove('hidden');
+                    return;
+                }
+
+                header.classList.remove('hidden');
+                empty.classList.add('hidden');
+
+                // 存储文档数据供详情查看使用
+                window.documentsData = {};
+                data.documents.forEach(doc => {
+                    window.documentsData[doc.id] = doc;
+                });
+
+                list.innerHTML = data.documents.map(doc => `
+                    <div class="p-6 hover:bg-slate-50 transition">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1 cursor-pointer" onclick="showDocumentDetail(${doc.id})">
+                                <div class="flex items-center gap-3 mb-2">
+                                    <span class="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded">#${doc.id}</span>
+                                    <span class="font-medium text-slate-900">${doc.source}</span>
+                                </div>
+                                <p class="text-sm text-slate-600 mb-2 line-clamp-2">${doc.content}</p>
+                                <p class="text-xs text-slate-400">${formatDateTime(doc.created_at)}</p>
+                            </div>
+                            <button onclick="deleteDocument(${doc.id})"
+                                class="ml-4 p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+
+                lucide.createIcons();
+            } catch (error) {
+                console.error('加载知识库失败:', error);
+            }
+        }
+
+        function showUploadModal() {
+            document.getElementById('uploadModal').classList.remove('hidden');
+            document.getElementById('uploadProgress').classList.add('hidden');
+            lucide.createIcons();
+        }
+
+        function closeUploadModal() {
+            document.getElementById('uploadModal').classList.add('hidden');
+            document.getElementById('docFile').value = '';
+            document.getElementById('docSource').value = '';
+            document.getElementById('docContent').value = '';
+            document.getElementById('uploadProgress').classList.add('hidden');
+        }
+
+        function showDocumentDetail(id) {
+            const doc = window.documentsData[id];
+            if (!doc) {
+                showToast('文档数据不存在', 'error');
+                return;
+            }
+
+            document.getElementById('docDetailTitle').textContent = doc.source;
+            document.getElementById('docDetailMeta').textContent = `ID: #${id} | 创建时间: ${formatDateTime(doc.created_at)}`;
+            document.getElementById('docDetailContent').textContent = doc.content;
+            document.getElementById('docDetailModal').classList.remove('hidden');
+        }
+
+        function closeDocDetailModal() {
+            document.getElementById('docDetailModal').classList.add('hidden');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML.replace(/'/g, '&#39;');
+        }
+
+        async function uploadDocument() {
+            const fileInput = document.getElementById('docFile');
+            const source = document.getElementById('docSource').value.trim();
+            const content = document.getElementById('docContent').value.trim();
+
+            // 优先使用文件上传
+            if (fileInput.files && fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+
+                // 验证文件类型
+                const allowedTypes = ['.pdf', '.docx', '.md', '.txt'];
+                const fileExt = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+                if (!allowedTypes.includes(fileExt)) {
+                    showToast(`不支持的文件格式: ${fileExt}`, 'error');
+                    return;
+                }
+
+                // 验证文件大小
+                const maxSize = 50 * 1024 * 1024; // 50MB
+                if (file.size > maxSize) {
+                    showToast(`文件过大: ${(file.size / 1024 / 1024).toFixed(1)}MB，最大限制: 50MB`, 'error');
+                    return;
+                }
+
+                // 显示上传进度
+                document.getElementById('uploadProgress').classList.remove('hidden');
+                document.getElementById('uploadProgressText').textContent = '正在解析文档...';
+
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    const response = await fetch('/api/admin/knowledge/upload', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.detail || `HTTP ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    showToast(`已导入 ${result.chunks} 个分块`);
+                    closeUploadModal();
+                    loadKnowledge();
+                } catch (error) {
+                    showToast(`上传失败: ${error.message}`, 'error');
+                    document.getElementById('uploadProgress').classList.add('hidden');
+                }
+
+            } else if (source && content) {
+                // 文本模式
+                try {
+                    await apiCall('/api/admin/knowledge/upload-text', {
+                        method: 'POST',
+                        body: JSON.stringify({ source, content })
+                    });
+
+                    showToast('文档上传成功');
+                    closeUploadModal();
+                    loadKnowledge();
+                } catch (error) {
+                    console.error('上传失败:', error);
+                }
+
+            } else {
+                showToast('请选择文件或填写完整文本信息', 'error');
+            }
+        }
+
+        async function deleteDocument(id) {
+            if (!confirm('确定要删除此文档吗？此操作不可恢复。')) return;
+
+            try {
+                await apiCall(`/api/admin/knowledge/${id}`, { method: 'DELETE' });
+                showToast('文档已删除');
+                loadKnowledge();
+            } catch (error) {
+                console.error('删除失败:', error);
+            }
+        }
+
+        // ========== 对话记录 ==========
+
+        async function loadConversations() {
+            try {
+                const data = await apiCall('/api/admin/conversations?limit=50');
+                const list = document.getElementById('convList');
+                const empty = document.getElementById('convEmpty');
+
+                if (data.conversations.length === 0) {
+                    list.innerHTML = '';
+                    empty.classList.remove('hidden');
+                    return;
+                }
+
+                empty.classList.add('hidden');
+
+                // 按 session_id 分组对话
+                const sessionMap = new Map();
+                data.conversations.forEach(conv => {
+                    if (!sessionMap.has(conv.session_id)) {
+                        sessionMap.set(conv.session_id, []);
+                    }
+                    sessionMap.get(conv.session_id).push(conv);
+                });
+
+                // 渲染每个会话
+                list.innerHTML = Array.from(sessionMap.entries()).map(([sessionId, convs]) => {
+                    const firstConv = convs[0];
+                    return `
+                        <div class="p-6 hover:bg-slate-50">
+                            <div class="flex items-start gap-4">
+                                <div class="flex-shrink-0 w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center">
+                                    <i data-lucide="${firstConv.role === 'user' ? 'user' : 'bot'}" class="w-5 h-5 text-slate-600"></i>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <span class="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs font-medium rounded">${firstConv.role}</span>
+                                        <span class="text-xs text-slate-500">${sessionId}</span>
+                                        ${firstConv.engine ? `<span class="text-xs text-slate-400">· ${firstConv.engine}</span>` : ''}
+                                        <span class="text-xs text-slate-400">· ${convs.length} 条消息</span>
+                                    </div>
+                                    <p class="text-sm text-slate-700 line-clamp-2 mb-1">${firstConv.content}</p>
+                                    <p class="text-xs text-slate-400">${formatDateTime(firstConv.created_at)}</p>
+                                </div>
+                                <button onclick="deleteConversation('${sessionId}')"
+                                    class="ml-4 p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                                    title="删除此会话">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                lucide.createIcons();
+            } catch (error) {
+                console.error('加载对话记录失败:', error);
+            }
+        }
+
+        async function searchConversations() {
+            const sessionId = document.getElementById('searchSessionId').value.trim();
+            if (!sessionId) {
+                loadConversations();
+                return;
+            }
+
+            try {
+                const data = await apiCall(`/api/admin/conversations?session_id=${sessionId}`);
+                // 同样的渲染逻辑...
+                showToast(`找到 ${data.conversations.length} 条记录`, 'info');
+            } catch (error) {
+                console.error('搜索失败:', error);
+            }
+        }
+
+        async function deleteConversation(sessionId) {
+            if (!confirm(`确定要删除会话 "${sessionId}" 的所有对话记录吗？此操作不可恢复。`)) {
+                return;
+            }
+
+            try {
+                await apiCall(`/api/admin/conversations/${encodeURIComponent(sessionId)}`, { method: 'DELETE' });
+                showToast('对话记录已删除');
+                loadConversations();
+            } catch (error) {
+                console.error('删除失败:', error);
+            }
+        }
+
+        // ========== 系统状态 ==========
+
+        async function loadSystemStatus() {
+            try {
+                const data = await apiCall('/api/admin/system/status');
+                const container = document.getElementById('systemStatus');
+
+                container.innerHTML = `
+                    <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                        <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                            <i data-lucide="cpu" class="w-5 h-5"></i>
+                            引擎状态
+                        </h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between">
+                                <span class="text-slate-600">编排引擎</span>
+                                <span class="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded">
+                                    ${data.engine.name}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                        <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                            <i data-lucide="brain" class="w-5 h-5"></i>
+                            LLM 配置
+                        </h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between">
+                                <span class="text-slate-600">厂商</span>
+                                <span class="font-medium">${data.llm.provider || '未配置'}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-slate-600">协议</span>
+                                <span class="font-medium">${data.llm.protocol || 'openai'}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-slate-600">模型</span>
+                                <span class="font-medium">${data.llm.model || '未配置'}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-slate-600">API Key</span>
+                                <span class="px-2 py-1 ${data.llm.has_api_key ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'} text-xs font-medium rounded">
+                                    ${data.llm.has_api_key ? '已配置' : '未配置'}
+                                </span>
+                            </div>
+                        </div>
+                        ${!data.llm.has_api_key ? `
+                        <div class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                            <p class="text-xs text-red-900"><strong>警告：</strong>未配置 API Key，当前使用离线 Mock 模式</p>
+                            <p class="text-xs text-red-800 mt-1">❌ 无法使用真实 LLM 生成回复</p>
+                            <p class="text-xs text-red-900 mt-2"><strong>配置方法：</strong>前往「模型设置」页面配置 API Key</p>
+                        </div>
+                        ` : `
+                        <div class="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                            <p class="text-xs text-green-900">✅ LLM 已配置，可以使用真实模型生成回复</p>
+                            <p class="text-xs text-green-800 mt-1">Base URL: ${data.llm.base_url}</p>
+                        </div>
+                        `}
+                    </div>
+                `;
+
+                lucide.createIcons();
+            } catch (error) {
+                console.error('加载系统状态失败:', error);
+            }
+        }
+
+        async function loadSystemBadge() {
+            try {
+                const data = await apiCall('/api/admin/system/status');
+                const badge = document.getElementById('engineBadge');
+
+                badge.innerHTML = `
+                    <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span class="text-sm font-medium text-slate-700">${data.engine.name}</span>
+                `;
+            } catch {}
+        }
+
+        // ========== 请求日志 ==========
+
+        async function loadLogs() {
+            try {
+                const data = await apiCall('/api/admin/logs?limit=50');
+                const container = document.getElementById('logsContainer');
+
+                if (data.logs.length === 0) {
+                    container.innerHTML = '<div class="p-6 text-center text-slate-500">暂无日志记录</div>';
+                    return;
+                }
+
+                container.innerHTML = data.logs.map(log => {
+                    const statusColor = log.status >= 200 && log.status < 300 ? 'text-green-600' :
+                                       log.status >= 400 ? 'text-red-600' : 'text-slate-600';
+                    const time = new Date(log.timestamp).toLocaleString('zh-CN', {hour12: false});
+
+                    return `
+                    <div class="p-4 hover:bg-slate-50 transition">
+                        <div class="flex items-start justify-between gap-4">
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="px-2 py-0.5 ${statusColor} bg-slate-100 text-xs font-mono rounded">${log.method}</span>
+                                    <span class="text-sm font-medium text-slate-900 truncate">${log.path}</span>
+                                </div>
+                                <div class="flex items-center gap-4 text-xs text-slate-500">
+                                    <span>ID: ${log.request_id}</span>
+                                    <span>${time}</span>
+                                    <span class="${statusColor} font-medium">状态: ${log.status || '?'}</span>
+                                    <span>耗时: ${log.duration_ms || '?'}ms</span>
+                                </div>
+                                ${log.error ? `<div class="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded">${log.error}</div>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                    `;
+                }).join('');
+
+                lucide.createIcons();
+            } catch (error) {
+                console.error('加载日志失败:', error);
+            }
+        }
+
+        // ========== 模型设置 ==========
+
+        // 厂商预设配置
+        const providerPresets = {
+            deepseek: {
+                name: 'DeepSeek',
+                base_url: 'https://api.deepseek.com/v1',
+                protocol: 'openai'
+            },
+            qwen: {
+                name: '通义千问',
+                base_url: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+                protocol: 'openai'
+            },
+            glm: {
+                name: '智谱GLM',
+                base_url: 'https://open.bigmodel.cn/api/paas/v4',
+                protocol: 'openai'
+            },
+            moonshot: {
+                name: '月之暗面',
+                base_url: 'https://api.moonshot.cn/v1',
+                protocol: 'openai'
+            },
+            openai: {
+                name: 'OpenAI',
+                base_url: 'https://api.openai.com/v1',
+                protocol: 'openai'
+            },
+            claude: {
+                name: 'Claude (Anthropic)',
+                base_url: 'https://api.anthropic.com',
+                protocol: 'anthropic'
+            },
+            gemini_openai: {
+                name: 'Gemini (OpenAI兼容)',
+                base_url: 'https://generativelanguage.googleapis.com/v1beta/openai',
+                protocol: 'openai'
+            },
+            gemini: {
+                name: 'Gemini (原生)',
+                base_url: 'https://generativelanguage.googleapis.com',
+                protocol: 'gemini'
+            },
+            custom: {
+                name: '自定义',
+                base_url: '',
+                protocol: 'openai'
+            }
+        };
+
+        async function loadModelConfig() {
+            try {
+                const config = await apiCall('/api/admin/llm-config');
+
+                // 填充表单
+                document.getElementById('modelProvider').value = config.provider || 'custom';
+                document.getElementById('modelBaseUrl').value = config.base_url || '';
+                document.getElementById('modelProtocol').value = config.protocol || 'openai';
+                document.getElementById('modelApiKey').value = ''; // 不回显明文密码
+
+                // 如果有模型配置，添加到下拉列表
+                if (config.model) {
+                    const modelSelect = document.getElementById('modelName');
+                    modelSelect.innerHTML = `<option value="${config.model}">${config.model}</option>`;
+                    modelSelect.value = config.model;
+                }
+
+                // 更新当前配置显示
+                document.getElementById('currentProvider').textContent = providerPresets[config.provider]?.name || '自定义';
+                document.getElementById('currentBaseUrl').textContent = config.base_url || '-';
+                document.getElementById('currentApiKey').textContent = config.has_api_key ? config.api_key_masked : '未配置';
+                document.getElementById('currentModel').textContent = config.model || '-';
+
+            } catch (error) {
+                console.error('加载配置失败:', error);
+                showToast('加载配置失败', 'error');
+            }
+        }
+
+        function handleProviderChange() {
+            const provider = document.getElementById('modelProvider').value;
+            const preset = providerPresets[provider];
+
+            if (preset) {
+                if (preset.base_url) {
+                    document.getElementById('modelBaseUrl').value = preset.base_url;
+                }
+                document.getElementById('modelProtocol').value = preset.protocol || 'openai';
+            }
+        }
+
+        async function fetchModels() {
+            const baseUrl = document.getElementById('modelBaseUrl').value.trim();
+            const apiKey = document.getElementById('modelApiKey').value.trim();
+            const protocol = document.getElementById('modelProtocol').value;
+
+            if (!baseUrl || !apiKey) {
+                showToast('请先填写 Base URL 和 API Key', 'error');
+                return;
+            }
+
+            try {
+                showToast('正在获取模型列表...', 'info');
+
+                const data = await apiCall(`/api/admin/models?base_url=${encodeURIComponent(baseUrl)}&api_key=${encodeURIComponent(apiKey)}&protocol=${encodeURIComponent(protocol)}`);
+
+                if (data.status === 'unsupported') {
+                    // 厂商不支持自动获取
+                    showToast(data.message, 'warning');
+                    document.getElementById('manualModelInput').classList.remove('hidden');
+                    document.getElementById('modelHint').textContent = '该厂商不支持自动获取，请手动输入模型名';
+                } else {
+                    // 成功获取模型列表
+                    const modelSelect = document.getElementById('modelName');
+                    modelSelect.innerHTML = data.models.map(m => `<option value="${m}">${m}</option>`).join('');
+
+                    if (data.models.length > 0) {
+                        modelSelect.value = data.models[0];
+                    }
+
+                    showToast(`成功获取 ${data.count} 个模型`, 'success');
+                    document.getElementById('manualModelInput').classList.add('hidden');
+                }
+
+            } catch (error) {
+                console.error('获取模型列表失败:', error);
+                showToast(error.message || '获取模型列表失败', 'error');
+            }
+        }
+
+        async function testConnection() {
+            const baseUrl = document.getElementById('modelBaseUrl').value.trim();
+            const apiKey = document.getElementById('modelApiKey').value.trim();
+            const protocol = document.getElementById('modelProtocol').value;
+            let model = document.getElementById('modelName').value.trim();
+
+            // 如果手动输入框显示，使用手动输入的模型名
+            if (!document.getElementById('manualModelInput').classList.contains('hidden')) {
+                model = document.getElementById('manualModelName').value.trim();
+            }
+
+            if (!baseUrl || !apiKey || !model) {
+                showToast('请填写完整的配置信息', 'error');
+                return;
+            }
+
+            try {
+                showToast('正在测试连接...', 'info');
+
+                const data = await apiCall('/api/admin/llm-config/test', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        base_url: baseUrl,
+                        api_key: apiKey,
+                        model: model,
+                        protocol: protocol
+                    })
+                });
+
+                showToast(`✅ 连接成功`, 'success');
+
+            } catch (error) {
+                console.error('测试连接失败:', error);
+                showToast(`❌ ${error.message || '测试连接失败'}`, 'error');
+            }
+        }
+
+        async function saveLLMConfig() {
+            const provider = document.getElementById('modelProvider').value;
+            const baseUrl = document.getElementById('modelBaseUrl').value.trim();
+            const apiKey = document.getElementById('modelApiKey').value.trim();
+            const protocol = document.getElementById('modelProtocol').value;
+            let model = document.getElementById('modelName').value.trim();
+
+            // 如果手动输入框显示，使用手动输入的模型名
+            if (!document.getElementById('manualModelInput').classList.contains('hidden')) {
+                model = document.getElementById('manualModelName').value.trim();
+            }
+
+            if (!baseUrl || !apiKey || !model) {
+                showToast('请填写完整的配置信息', 'error');
+                return;
+            }
+
+            try {
+                showToast('正在保存配置...', 'info');
+
+                const data = await apiCall('/api/admin/llm-config', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        provider: provider,
+                        base_url: baseUrl,
+                        api_key: apiKey,
+                        model: model,
+                        protocol: protocol
+                    })
+                });
+
+                showToast(`✅ ${data.message}`, 'success');
+
+                // 重新加载配置显示
+                loadModelConfig();
+
+            } catch (error) {
+                console.error('保存配置失败:', error);
+                showToast(`❌ ${error.message || '保存配置失败'}`, 'error');
+            }
+        }
+
+        // ========== 执行轨迹 ==========
+
+        async function loadExecutionTraces() {
+            try {
+                const data = await apiCall('/api/admin/execution-traces?limit=50');
+                const list = document.getElementById('tracesList');
+                const empty = document.getElementById('tracesEmpty');
+
+                if (data.traces.length === 0) {
+                    list.innerHTML = '';
+                    empty.classList.remove('hidden');
+                    return;
+                }
+
+                empty.classList.add('hidden');
+
+                list.innerHTML = data.traces.map(trace => {
+                    const engineColors = {
+                        'langgraph': 'bg-green-100 text-green-700',
+                        'handoff': 'bg-orange-100 text-orange-700',
+                        'error': 'bg-red-100 text-red-700'
+                    };
+                    const engineColor = engineColors[trace.engine] || 'bg-slate-100 text-slate-700';
+
+                    return `
+                        <div class="p-6 hover:bg-slate-50 cursor-pointer transition" onclick="showTraceDetail('${trace.trace_id}')">
+                            <div class="flex items-start gap-4">
+                                <div class="flex-shrink-0 w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
+                                    <i data-lucide="list" class="w-5 h-5 text-indigo-600"></i>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <span class="px-2 py-0.5 ${engineColor} text-xs font-medium rounded">${trace.engine}</span>
+                                        <span class="px-2 py-0.5 ${trace.kb_hit ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'} text-xs font-medium rounded">
+                                            ${trace.kb_hit ? '知识库命中' : '未命中'}
+                                        </span>
+                                        <span class="text-xs text-slate-500">${trace.agent}</span>
+                                        <span class="text-xs text-slate-400">· ${Math.round(trace.latency_ms)}ms</span>
+                                    </div>
+                                    <p class="text-sm text-slate-700 mb-1">Trace ID: <code class="bg-slate-100 px-1 rounded text-xs">${trace.trace_id}</code></p>
+                                    <p class="text-sm text-slate-500">Session: ${trace.session_id}</p>
+                                    <p class="text-xs text-slate-400 mt-1">${formatDateTime(trace.created_at)}</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                lucide.createIcons();
+            } catch (error) {
+                console.error('加载执行轨迹失败:', error);
+            }
+        }
+
+        async function showTraceDetail(traceId) {
+            try {
+                const data = await apiCall(`/api/admin/execution-traces/${traceId}`);
+
+                // 填充基本信息
+                document.getElementById('traceDetailMeta').textContent = formatDateTime(data.created_at);
+                document.getElementById('traceSessionId').textContent = data.session_id;
+                document.getElementById('traceTraceId').textContent = data.trace_id;
+                document.getElementById('traceAgent').textContent = data.agent;
+                document.getElementById('traceEngine').textContent = data.engine;
+                document.getElementById('traceLatency').textContent = `${Math.round(data.latency_ms)}ms`;
+                document.getElementById('traceKBHit').textContent = data.kb_hit ? '✅ 是' : '❌ 否';
+
+                // 渲染执行步骤
+                const stepsHtml = data.steps && data.steps.length > 0 ? data.steps.map((step, index) => {
+                    const statusColors = {
+                        'success': 'bg-green-50 border-green-200 text-green-900',
+                        'error': 'bg-red-50 border-red-200 text-red-900',
+                        'pending': 'bg-yellow-50 border-yellow-200 text-yellow-900'
+                    };
+                    const statusColor = statusColors[step.status] || 'bg-slate-50 border-slate-200 text-slate-900';
+
+                    return `
+                        <div class="flex gap-3">
+                            <div class="flex-shrink-0 w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-sm font-medium text-indigo-700">
+                                ${index + 1}
+                            </div>
+                            <div class="flex-1 border ${statusColor} rounded-lg p-3">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="font-medium text-sm">${step.name}</span>
+                                    <span class="text-xs">${step.duration_ms > 0 ? Math.round(step.duration_ms) + 'ms' : '-'}</span>
+                                </div>
+                                <p class="text-xs opacity-80">${step.detail}</p>
+                            </div>
+                        </div>
+                    `;
+                }).join('') : '<p class="text-sm text-slate-500">无执行步骤记录</p>';
+
+                document.getElementById('traceSteps').innerHTML = stepsHtml;
+
+                // 渲染相关对话
+                const messagesHtml = data.messages && data.messages.length > 0 ? data.messages.map(msg => {
+                    const isUser = msg.role === 'user';
+                    return `
+                        <div class="p-3 ${isUser ? 'bg-blue-50 border-blue-200' : 'bg-slate-50 border-slate-200'} border rounded-lg">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="px-2 py-0.5 ${isUser ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-700'} text-xs font-medium rounded">
+                                    ${isUser ? '用户' : 'AI'}
+                                </span>
+                                <span class="text-xs text-slate-500">${formatDateTime(msg.created_at)}</span>
+                            </div>
+                            <p class="text-sm text-slate-700 whitespace-pre-wrap">${msg.content}</p>
+                        </div>
+                    `;
+                }).join('') : '<p class="text-sm text-slate-500">无相关对话记录</p>';
+
+                document.getElementById('traceMessages').innerHTML = messagesHtml;
+
+                document.getElementById('traceDetailModal').classList.remove('hidden');
+            } catch (error) {
+                console.error('加载轨迹详情失败:', error);
+                showToast('加载轨迹详情失败', 'error');
+            }
+        }
+
+        function closeTraceDetailModal() {
+            document.getElementById('traceDetailModal').classList.add('hidden');
+        }
+
+        // ========== 初始化 ==========
+
+        window.onload = () => {
+            token = localStorage.getItem('adminToken');
+            if (token) {
+                document.getElementById('tokenInput').value = token;
+                login();
+            }
+
+            lucide.createIcons();
+
+            // 回车登录
+            document.getElementById('tokenInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') login();
+            });
+        };
+    </script>
+</body>
+</html>

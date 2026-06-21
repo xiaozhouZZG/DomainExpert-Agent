@@ -1,0 +1,30 @@
+{"question": "键盘大概多少钱", "expected_chunk_ids": ["xianyu-reply-seed-keyboard_chunk_0_0"], "category": "price"}
+{"question": "这个键盘啥价位", "expected_chunk_ids": ["xianyu-reply-seed-keyboard_chunk_0_0"], "category": "price"}
+{"question": "键盘市场价多少", "expected_chunk_ids": ["xianyu-reply-seed-keyboard_chunk_0_0", "xianyu-reply-seed-keyboard_chunk_5_0"], "category": "price"}
+{"question": "能便宜点吗", "expected_chunk_ids": ["xianyu-reply-seed-keyboard_chunk_2_0"], "category": "negotiation"}
+{"question": "可以刀一刀吗", "expected_chunk_ids": ["xianyu-reply-seed-keyboard_chunk_2_0"], "category": "negotiation"}
+{"question": "能不能降价", "expected_chunk_ids": ["xianyu-reply-seed-keyboard_chunk_2_0"], "category": "negotiation"}
+{"question": "这个价格有点贵啊", "expected_chunk_ids": ["xianyu-reply-seed-keyboard_chunk_2_0"], "category": "negotiation"}
+{"question": "什么时候发货", "expected_chunk_ids": ["xianyu-reply-seed-keyboard_chunk_3_0"], "category": "shipping"}
+{"question": "多久能发出", "expected_chunk_ids": ["xianyu-reply-seed-keyboard_chunk_3_0"], "category": "shipping"}
+{"question": "付款后多久发", "expected_chunk_ids": ["xianyu-reply-seed-keyboard_chunk_3_0"], "category": "shipping"}
+{"question": "今天能发吗", "expected_chunk_ids": ["xianyu-reply-seed-keyboard_chunk_3_0"], "category": "shipping"}
+{"question": "是什么轴", "expected_chunk_ids": ["xianyu-reply-seed-keyboard_chunk_1_0"], "category": "product_info"}
+{"question": "机械键盘吗", "expected_chunk_ids": ["xianyu-reply-seed-keyboard_chunk_1_0"], "category": "product_info"}
+{"question": "轴体是啥", "expected_chunk_ids": ["xianyu-reply-seed-keyboard_chunk_1_0"], "category": "product_info"}
+{"question": "键盘手感怎么样", "expected_chunk_ids": ["xianyu-reply-seed-keyboard_chunk_1_0"], "category": "product_info"}
+{"question": "成色如何", "expected_chunk_ids": ["xianyu-reply-seed-keyboard_chunk_4_0"], "category": "condition"}
+{"question": "有没有划痕", "expected_chunk_ids": ["xianyu-reply-seed-keyboard_chunk_4_0"], "category": "condition"}
+{"question": "能补图吗", "expected_chunk_ids": ["xianyu-reply-seed-keyboard_chunk_4_0"], "category": "condition"}
+{"question": "有使用痕迹吗", "expected_chunk_ids": ["xianyu-reply-seed-keyboard_chunk_4_0"], "category": "condition"}
+{"question": "怎么验货", "expected_chunk_ids": ["xianyu-reply-seed-keyboard_chunk_4_0"], "category": "condition"}
+{"question": "键盘怎么定价", "expected_chunk_ids": ["xianyu-reply-seed-keyboard_chunk_0_0"], "category": "price"}
+{"question": "标题怎么写", "expected_chunk_ids": ["xianyu-reply-seed-keyboard_chunk_0_0"], "category": "listing"}
+{"question": "有什么卖点", "expected_chunk_ids": ["xianyu-reply-seed-keyboard_chunk_1_0"], "category": "product_info"}
+{"question": "同类键盘多少钱", "expected_chunk_ids": ["xianyu-reply-seed-keyboard_chunk_0_0", "xianyu-reply-seed-keyboard_chunk_5_0"], "category": "price"}
+{"question": "其他卖家卖多少", "expected_chunk_ids": ["xianyu-reply-seed-keyboard_chunk_5_0", "xianyu-reply-seed-keyboard_chunk_5_1"], "category": "market"}
+{"question": "热门键盘有哪些", "expected_chunk_ids": ["xianyu-reply-seed-keyboard_chunk_5_1"], "category": "market"}
+{"question": "最便宜的键盘多少钱", "expected_chunk_ids": ["xianyu-reply-seed-keyboard_chunk_5_0"], "category": "market"}
+{"question": "包邮吗", "expected_chunk_ids": ["xianyu-reply-seed-keyboard_chunk_3_0"], "category": "shipping"}
+{"question": "节假日能发货吗", "expected_chunk_ids": ["xianyu-reply-seed-keyboard_chunk_3_0"], "category": "shipping"}
+{"question": "收到货有问题怎么办", "expected_chunk_ids": ["xianyu-reply-seed-keyboard_chunk_4_0"], "category": "condition"}

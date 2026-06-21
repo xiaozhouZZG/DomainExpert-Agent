@@ -2277,3 +2277,18 @@ async def resolve_conversation(conversation_id: str):
     except Exception as exc:
         logger.exception("Failed to resolve conversation: %s", conversation_id)
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.post("/conversations/{conversation_id}/return-to-bot")
+async def return_conversation_to_bot(conversation_id: str):
+    """手动交回机器人（human_taking / resolved → open）"""
+    from core.conversation_status import return_to_bot
+
+    try:
+        result = return_to_bot(conversation_id)
+        return result
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Failed to return conversation to bot: %s", conversation_id)
+        raise HTTPException(status_code=500, detail=str(exc))

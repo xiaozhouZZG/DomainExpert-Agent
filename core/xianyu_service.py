@@ -72,6 +72,21 @@ def ingest_buyer_messages(messages: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
             if cursor.rowcount > 0:
                 inserted += 1
 
+            # 自动唤醒逻辑：resolved 会话收到新买家消息，转回 open
+            # 注意：只唤醒 resolved，pending_handoff/human_taking 不被唤醒
+            cursor.execute("""
+                UPDATE xianyu_conversations
+                SET status = 'open', updated_at = CURRENT_TIMESTAMP
+                WHERE conversation_id = ?
+                  AND status = 'resolved'
+            """, (conversation_id,))
+
+            if cursor.rowcount > 0:
+                logger.info(
+                    "Auto-wakeup: conversation %s status changed from resolved to open (new buyer message received)",
+                    conversation_id
+                )
+
         conn.commit()
         return {
             "inserted": inserted,

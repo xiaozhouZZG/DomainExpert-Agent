@@ -244,3 +244,59 @@ def should_bot_reply(conversation_id: str) -> bool:
     bot_allowed_statuses = {None, 'open', 'bot'}
 
     return status in bot_allowed_statuses
+
+
+def return_to_bot(conversation_id: str) -> dict[str, Any]:
+    """
+    手动交回机器人（human_taking / resolved → open）
+
+    Args:
+        conversation_id: 会话ID
+
+    Returns:
+        {'status': 'ok', 'conversation_status': 'open'}
+    """
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+
+        # 检查当前状态
+        cursor.execute("""
+            SELECT status FROM xianyu_conversations
+            WHERE conversation_id = ?
+        """, (conversation_id,))
+        row = cursor.fetchone()
+
+        if not row:
+            raise ValueError(f"Conversation {conversation_id} not found")
+
+        current_status = row[0]
+
+        # 只允许从 human_taking 或 resolved 交回机器人
+        if current_status not in ('human_taking', 'resolved'):
+            raise ValueError(
+                f"Cannot return conversation with status '{current_status}' to bot. "
+                f"Expected 'human_taking' or 'resolved'"
+            )
+
+        # 更新状态为 open
+        cursor.execute("""
+            UPDATE xianyu_conversations
+            SET status = 'open',
+                updated_at = CURRENT_TIMESTAMP
+            WHERE conversation_id = ?
+        """, (conversation_id,))
+
+        conn.commit()
+
+        return {
+            "status": "ok",
+            "conversation_status": "open",
+            "previous_status": current_status
+        }
+
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()

@@ -568,6 +568,7 @@ function renderConversations(data) {
                     ${!conv.is_system ? '<button class="btn-view-chat btn-sm">查看对话</button>' : ''}
                     ${convStatus === 'pending_handoff' ? '<button class="btn-handoff btn-sm btn-primary">接手</button>' : ''}
                     ${convStatus === 'human_taking' ? '<button class="btn-resolve btn-sm btn-success">已解决</button>' : ''}
+                    ${(convStatus === 'human_taking' || convStatus === 'resolved') ? '<button class="btn-return-bot btn-sm btn-secondary">交回机器人</button>' : ''}
                 </div>
             </div>
         `;
@@ -617,6 +618,25 @@ function renderConversations(data) {
                     loadConversations(); // 刷新列表
                 } catch (error) {
                     alert(`标记失败: ${error.message}`);
+                }
+            });
+        }
+
+        // 交回机器人按钮
+        const btnReturnBot = item.querySelector('.btn-return-bot');
+        if (btnReturnBot) {
+            btnReturnBot.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                if (!confirm(`确认将会话 ${buyerNick} 交回机器人？`)) return;
+
+                try {
+                    await api(`/api/xianyu/conversations/${conv.conversation_id}/return-to-bot`, {
+                        method: 'POST'
+                    });
+                    alert('交回成功，机器人将处理后续消息');
+                    loadConversations(); // 刷新列表
+                } catch (error) {
+                    alert(`交回失败: ${error.message}`);
                 }
             });
         }

@@ -78,6 +78,15 @@
     background: #2e7d32;
 }
 
+.btn-secondary {
+    background: #757575;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #616161;
+}
+
 /* 消息气泡对齐 */
 .message-left {
     text-align: left;

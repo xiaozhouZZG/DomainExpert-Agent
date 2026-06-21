@@ -163,3 +163,179 @@ def test_nonexistent_conversation():
 
     # 不存在的会话允许机器人回复（默认行为）
     assert should_bot_reply("nonexistent_conv_id") is True
+
+
+def test_auto_wakeup_resolved_on_new_message(test_conversation):
+    """测试 resolved 会话收到新消息自动唤醒"""
+    from core.xianyu_service import ingest_buyer_messages
+
+    # 准备：标记会话为 resolved
+    mark_conversation_pending_handoff(
+        conversation_id=test_conversation,
+        reason="gray",
+        buyer_message="测试消息",
+        confidence_score=0.55
+    )
+    handoff_to_human(test_conversation)
+    resolve_conversation(test_conversation)
+
+    # 验证状态为 resolved
+    assert get_conversation_status(test_conversation) == "resolved"
+    assert should_bot_reply(test_conversation) is False
+
+    # 收到新买家消息
+    new_messages = [{
+        "conversation_id": test_conversation,
+        "buyer_name": "测试买家",
+        "content": "新问题来了",
+        "received_at": "2026-06-22T00:00:00"
+    }]
+    ingest_buyer_messages(new_messages)
+
+    # 验证状态自动转回 open
+    status = get_conversation_status(test_conversation)
+    assert status == "open"
+
+    # 验证机器人可以回复了
+    assert should_bot_reply(test_conversation) is True
+
+
+def test_no_wakeup_for_pending_handoff(test_conversation):
+    """测试 pending_handoff 会话收到新消息不被唤醒"""
+    from core.xianyu_service import ingest_buyer_messages
+
+    # 标记为 pending_handoff
+    mark_conversation_pending_handoff(
+        conversation_id=test_conversation,
+        reason="gray",
+        buyer_message="测试消息",
+        confidence_score=0.55
+    )
+
+    # 验证状态为 pending_handoff
+    assert get_conversation_status(test_conversation) == "pending_handoff"
+
+    # 收到新买家消息
+    new_messages = [{
+        "conversation_id": test_conversation,
+        "buyer_name": "测试买家",
+        "content": "又来一条消息",
+        "received_at": "2026-06-22T00:00:00"
+    }]
+    ingest_buyer_messages(new_messages)
+
+    # 验证状态仍然是 pending_handoff（不被唤醒）
+    status = get_conversation_status(test_conversation)
+    assert status == "pending_handoff"
+
+    # 验证机器人仍然闭嘴
+    assert should_bot_reply(test_conversation) is False
+
+
+def test_no_wakeup_for_human_taking(test_conversation):
+    """测试 human_taking 会话收到新消息不被唤醒"""
+    from core.xianyu_service import ingest_buyer_messages
+
+    # 标记为 human_taking
+    mark_conversation_pending_handoff(
+        conversation_id=test_conversation,
+        reason="not_found",
+        buyer_message="测试消息",
+        confidence_score=0.50
+    )
+    handoff_to_human(test_conversation)
+
+    # 验证状态为 human_taking
+    assert get_conversation_status(test_conversation) == "human_taking"
+
+    # 收到新买家消息
+    new_messages = [{
+        "conversation_id": test_conversation,
+        "buyer_name": "测试买家",
+        "content": "又来一条消息",
+        "received_at": "2026-06-22T00:00:00"
+    }]
+    ingest_buyer_messages(new_messages)
+
+    # 验证状态仍然是 human_taking（不被唤醒）
+    status = get_conversation_status(test_conversation)
+    assert status == "human_taking"
+
+    # 验证机器人仍然闭嘴
+    assert should_bot_reply(test_conversation) is False
+
+
+def test_return_to_bot_from_human_taking(test_conversation):
+    """测试从 human_taking 手动交回机器人"""
+    from core.conversation_status import return_to_bot
+
+    # 准备：标记为 human_taking
+    mark_conversation_pending_handoff(
+        conversation_id=test_conversation,
+        reason="gray",
+        buyer_message="测试消息",
+        confidence_score=0.55
+    )
+    handoff_to_human(test_conversation)
+
+    # 验证状态为 human_taking
+    assert get_conversation_status(test_conversation) == "human_taking"
+
+    # 手动交回机器人
+    result = return_to_bot(test_conversation)
+    assert result["status"] == "ok"
+    assert result["conversation_status"] == "open"
+    assert result["previous_status"] == "human_taking"
+
+    # 验证状态已转回 open
+    assert get_conversation_status(test_conversation) == "open"
+
+    # 验证机器人可以回复了
+    assert should_bot_reply(test_conversation) is True
+
+
+def test_return_to_bot_from_resolved(test_conversation):
+    """测试从 resolved 手动交回机器人"""
+    from core.conversation_status import return_to_bot
+
+    # 准备：标记为 resolved
+    mark_conversation_pending_handoff(
+        conversation_id=test_conversation,
+        reason="not_found",
+        buyer_message="测试消息",
+        confidence_score=0.50
+    )
+    handoff_to_human(test_conversation)
+    resolve_conversation(test_conversation)
+
+    # 验证状态为 resolved
+    assert get_conversation_status(test_conversation) == "resolved"
+
+    # 手动交回机器人
+    result = return_to_bot(test_conversation)
+    assert result["status"] == "ok"
+    assert result["conversation_status"] == "open"
+    assert result["previous_status"] == "resolved"
+
+    # 验证状态已转回 open
+    assert get_conversation_status(test_conversation) == "open"
+
+    # 验证机器人可以回复了
+    assert should_bot_reply(test_conversation) is True
+
+
+def test_cannot_return_to_bot_from_pending_handoff(test_conversation):
+    """测试不能从 pending_handoff 交回机器人"""
+    from core.conversation_status import return_to_bot
+
+    # 标记为 pending_handoff
+    mark_conversation_pending_handoff(
+        conversation_id=test_conversation,
+        reason="gray",
+        buyer_message="测试消息",
+        confidence_score=0.55
+    )
+
+    # 尝试交回机器人（应该失败）
+    with pytest.raises(ValueError, match="Expected 'human_taking' or 'resolved'"):
+        return_to_bot(test_conversation)

@@ -1216,7 +1216,18 @@ def _upsert_reply_seed_knowledge() -> dict[str, Any]:
 
 
 async def _strict_reply_rag_search(query: str, top_k: int = REPLY_QUERY_TOP_K) -> dict[str, Any]:
+    """
+    闲鱼回复的严格RAG检索 - 应用统一置信度护栏
+
+    返回：
+        hit: bool - 是否命中（应用三段式护栏后）
+        top_score: float - 最高分数
+        threshold: float - 使用的阈值
+        results: list - 检索结果
+        confidence_status: str - 置信度状态 (high/gray/not_found)
+    """
     from knowledge.hybrid_retriever import reciprocal_rank_fusion
+    from knowledge.retrieval_gateway import get_retrieval_thresholds
 
     engine = get_hybrid_engine()
     if engine.mode != "vector":
@@ -1260,10 +1271,31 @@ async def _strict_reply_rag_search(query: str, top_k: int = REPLY_QUERY_TOP_K) -
         raise RuntimeError(f"Reranker failed in strict reply mode: {exc}") from exc
     results = _select_reply_context_results(query, reranked, limit=top_k)
     top_score = float(results[0]["score"]) if results else 0.0
+
+    # 应用统一置信度护栏
+    thresholds = get_retrieval_thresholds()
+    high_threshold = thresholds['high_threshold']
+    low_threshold = thresholds['low_threshold']
+
+    # 判定置信度状态
+    if top_score >= high_threshold:
+        confidence_status = 'high'
+        hit = True  # 高置信度：可以使用
+    elif top_score >= low_threshold:
+        confidence_status = 'gray'
+        hit = False  # 灰区：不使用，转人工
+        results = []  # 清空结果，不让模型使用
+    else:
+        confidence_status = 'not_found'
+        hit = False  # 低置信度：无可靠答案
+        results = []
+
     return {
-        "hit": bool(results) and top_score >= REPLY_SCORE_THRESHOLD,
+        "hit": hit,
         "top_score": top_score,
-        "threshold": REPLY_SCORE_THRESHOLD,
+        "threshold": REPLY_SCORE_THRESHOLD,  # 保留原阈值用于日志
+        "confidence_status": confidence_status,  # 新增：置信度状态
+        "confidence_thresholds": thresholds,  # 新增：当前阈值配置
         "results": results,
         "engine_stats": engine.get_stats(),
         "retrieval_path": {

@@ -488,17 +488,19 @@ class GoofishPlaywrightPlatform:
         conversation_id: str,
         content: str,
         approval_id: Optional[str] = None,
+        target: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        发送回复消息到闲鱼会话
+        发送回复消息到闲鱼会话（全自动：选会话 + 发送 + 硬校验）
 
         Args:
-            conversation_id: 会话ID
+            conversation_id: 会话ID（占位符）
             content: 消息内容
             approval_id: 审批ID（必需）
+            target: 买家昵称，用于自动选择会话
 
         Returns:
-            {"status": "sent", ...} 或 {"status": "failed", ...}
+            {"status": "sent", ...} 或 {"status": "failed", "uncertain"...}
         """
         if not approval_id:
             return {"status": "approval_required", "action": "send_reply"}
@@ -510,56 +512,71 @@ class GoofishPlaywrightPlatform:
                 "status": "failed",
                 "conversation_id": conversation_id,
                 "content": content,
+                "target": target,
                 "method": None,
                 "evidence": {}
             }
 
             try:
-                # 步骤1: 确认当前打开的会话 == 目标 conversation_id
                 current_url = page.url
                 logger.info(f"send_reply: 当前URL = {current_url}")
 
-                # 闲鱼 IM URL 格式通常包含会话标识
-                # 简化验证：检查是否在 IM 页面
-                if "goofish.com/im" not in current_url and "message" not in current_url:
-                    result["status"] = "failed"
-                    result["detail"] = f"Not on IM page. Current URL: {current_url}"
-                    logger.error(f"send_reply failed: not on IM page")
-                    return result
+                # 步骤1: 自动选择会话（防止发错人）
+                if target:
+                    logger.info(f"send_reply: 自动选择会话 target='{target}'")
 
-                logger.info("send_reply: 确认在 IM 页面")
+                    # 导航到 IM 列表（如果不在）
+                    if "goofish.com/im" not in current_url:
+                        logger.info("send_reply: 导航到 IM 页面")
+                        page.goto("https://goofish.com/im", wait_until="domcontentloaded", timeout=30000)
+                        time.sleep(2)
 
-                # 步骤2: 定位 textarea 输入框
-                # 使用稳定的 placeholder 定位
-                textarea_selector = 'textarea[placeholder*="请输入消息"]'
+                    # 查找匹配 target 的会话项
+                    conversation_items = page.locator('[class*="conversation-item"]').all()
+                    logger.info(f"send_reply: 找到 {len(conversation_items)} 个会话项")
+
+                    target_found = False
+                    for item in conversation_items:
+                        try:
+                            item_text = item.text_content()
+                            if target in item_text:
+                                logger.info(f"send_reply: 找到目标会话，点击: '{item_text[:50]}'")
+                                item.click()
+                                time.sleep(2)
+                                target_found = True
+                                break
+                        except:
+                            continue
+
+                    if not target_found:
+                        result["status"] = "failed"
+                        result["detail"] = f"Target conversation not found: '{target}'"
+                        logger.error(f"send_reply failed: target '{target}' not found")
+                        return result
+
+                    logger.info("send_reply: ✓ 已进入目标会话")
+
+                # 步骤2: 等待输入框出现
+                logger.info("send_reply: 等待输入框出现")
+                textarea_selector = 'textarea[placeholder^="请输入消息"]'
 
                 try:
                     textarea = page.locator(textarea_selector).first
-                    if not textarea.is_visible(timeout=3000):
-                        result["status"] = "failed"
-                        result["detail"] = "Textarea not visible"
-                        logger.error("send_reply failed: textarea not visible")
-                        return result
-
-                    logger.info("send_reply: 找到输入框")
-
-                    # 记录发送前的 textarea 值
-                    before_value = textarea.input_value()
-                    logger.info(f"send_reply: 发送前 textarea value = '{before_value}'")
-
+                    textarea.wait_for(state="visible", timeout=5000)
+                    logger.info("send_reply: ✓ 输入框已出现")
                 except Exception as e:
                     result["status"] = "failed"
-                    result["detail"] = f"Failed to locate textarea: {str(e)}"
-                    logger.error(f"send_reply failed: {e}")
+                    result["detail"] = f"Textarea not visible after 5s: {str(e)}"
+                    logger.error(f"send_reply failed: textarea timeout")
                     return result
 
-                # 步骤3: 填充内容
-                # 使用 fill() 触发 React 的 input 事件
+                # 步骤3: 填充内容（React 受控组件）
+                logger.info(f"send_reply: 填充内容 '{content}'")
                 try:
                     textarea.fill(content)
-                    time.sleep(0.5)  # 等待 React 状态更新
+                    time.sleep(0.5)
 
-                    # 验证填充成功
+                    # 校验填充成功
                     filled_value = textarea.input_value()
                     if filled_value != content:
                         result["status"] = "failed"
@@ -567,7 +584,7 @@ class GoofishPlaywrightPlatform:
                         logger.error(f"send_reply failed: fill verification failed")
                         return result
 
-                    logger.info(f"send_reply: 内容已填充: '{content}'")
+                    logger.info("send_reply: ✓ 内容已填充")
 
                 except Exception as e:
                     result["status"] = "failed"
@@ -575,100 +592,109 @@ class GoofishPlaywrightPlatform:
                     logger.error(f"send_reply failed to fill: {e}")
                     return result
 
-                # 步骤4: 发送（按 Enter）
+                # 步骤4: 点击"发送"按钮（优先）
+                logger.info("send_reply: 点击发送按钮")
                 try:
-                    # 优先使用 Enter 键发送
-                    textarea.press("Enter")
-                    result["method"] = "Enter"
-                    logger.info("send_reply: 已按 Enter 键")
-
-                    time.sleep(1)  # 等待发送完成
+                    # 发送按钮文字是"发 送"（中间有空格），get_by_text 会处理
+                    send_button = page.get_by_text("发送", exact=False).first
+                    send_button.click()
+                    result["method"] = "click"
+                    logger.info("send_reply: ✓ 已点击发送按钮")
+                    time.sleep(1.5)
 
                 except Exception as e:
-                    # 备选：点击发送按钮
-                    logger.warning(f"send_reply: Enter 失败，尝试点击发送按钮: {e}")
+                    # 备选：合成回车
+                    logger.warning(f"send_reply: 点击失败，尝试回车: {e}")
                     try:
-                        # 发送按钮的文字是 "发 送"（中间有空格）
-                        send_button = page.locator('span:has-text("发 送")').first
-                        send_button.click()
-                        result["method"] = "click"
-                        logger.info("send_reply: 已点击发送按钮")
-                        time.sleep(1)
+                        textarea.press("Enter")
+                        result["method"] = "Enter"
+                        logger.info("send_reply: ✓ 已按 Enter")
+                        time.sleep(1.5)
                     except Exception as e2:
                         result["status"] = "failed"
-                        result["detail"] = f"Failed to send (Enter and click both failed): {str(e2)}"
+                        result["detail"] = f"Failed to send (click and Enter both failed): {str(e2)}"
                         logger.error(f"send_reply failed to send: {e2}")
                         return result
 
-                # 步骤5: 校验发送成功
-                # 证据1: textarea 被清空
+                # 步骤5: 硬校验 - 检查"自己发出的消息气泡"
+                logger.info("send_reply: 硬校验 - 查找自己发出的消息")
+
+                # 证据1（辅助）: textarea 是否清空
                 try:
                     after_value = textarea.input_value()
                     textarea_cleared = (after_value == "" or after_value is None)
                     result["evidence"]["textarea_cleared"] = textarea_cleared
+                    logger.info(f"send_reply: textarea_cleared = {textarea_cleared}")
+                except:
+                    result["evidence"]["textarea_cleared"] = False
 
-                    if not textarea_cleared:
-                        result["status"] = "failed"
-                        result["detail"] = f"Textarea not cleared after send. Value: '{after_value}'"
-                        logger.error(f"send_reply failed: textarea not cleared")
-                        return result
-
-                    logger.info("send_reply: ✓ 证据1: textarea 已清空")
-
-                except Exception as e:
-                    result["status"] = "failed"
-                    result["detail"] = f"Failed to verify textarea cleared: {str(e)}"
-                    logger.error(f"send_reply verification failed: {e}")
-                    return result
-
-                # 证据2: 消息区出现刚发的内容
+                # 证据2（硬证据）: 最后一条"自己发的消息"包含发送内容
                 try:
-                    # 查找包含刚发送内容的消息气泡
-                    # 闲鱼消息通常在特定容器内
                     time.sleep(1)  # 等待消息渲染
 
-                    # 尝试多种可能的消息选择器
-                    message_found = False
-                    message_selectors = [
-                        f'div:has-text("{content}")',
-                        f'span:has-text("{content}")',
-                        f'[class*="message"]:has-text("{content}")',
-                    ]
+                    # 自己发的消息: class 含 message-text-right
+                    my_messages = page.locator('[class*="message-text-right"]').all()
+                    logger.info(f"send_reply: 找到 {len(my_messages)} 条自己的消息")
 
-                    for selector in message_selectors:
-                        try:
-                            messages = page.locator(selector).all()
-                            if len(messages) > 0:
-                                # 验证最后一条消息是否包含我们的内容
-                                last_message = messages[-1]
-                                if last_message.is_visible():
-                                    message_text = last_message.text_content()
-                                    if content in message_text:
-                                        message_found = True
-                                        result["evidence"]["message_bubble_found"] = True
-                                        result["evidence"]["message_text"] = message_text
-                                        logger.info(f"send_reply: ✓ 证据2: 找到消息气泡: '{message_text}'")
-                                        break
-                        except:
-                            continue
+                    if len(my_messages) > 0:
+                        # 取最后一条
+                        last_my_message = my_messages[-1]
+                        message_text = last_my_message.text_content()
 
-                    if not message_found:
-                        # 不强制要求找到消息气泡（可能渲染慢或选择器不对）
-                        # 但记录警告
-                        logger.warning("send_reply: ⚠️  未找到消息气泡，但 textarea 已清空")
+                        logger.info(f"send_reply: 最后一条自己的消息: '{message_text}'")
+
+                        if content in message_text:
+                            result["evidence"]["message_bubble_found"] = True
+                            result["evidence"]["message_text"] = message_text
+                            result["status"] = "sent"
+                            result["detail"] = "Message sent successfully (hard evidence: found in self bubble)"
+                            logger.info("send_reply: ✅ 硬证据确认 - 发送成功")
+                        else:
+                            # 找到自己的消息但内容不匹配
+                            result["evidence"]["message_bubble_found"] = False
+                            result["evidence"]["last_message_text"] = message_text
+
+                            if textarea_cleared:
+                                result["status"] = "uncertain"
+                                result["detail"] = f"Textarea cleared but message not found. Last message: '{message_text}'"
+                                logger.warning("send_reply: ⚠️  textarea清空但未找到消息气泡")
+                            else:
+                                result["status"] = "failed"
+                                result["detail"] = "Message not found and textarea not cleared"
+                                logger.error("send_reply: ✗ 未找到消息且textarea未清空")
+                    else:
+                        # 没找到任何自己的消息
                         result["evidence"]["message_bubble_found"] = False
 
+                        if textarea_cleared:
+                            result["status"] = "uncertain"
+                            result["detail"] = "Textarea cleared but no self messages found"
+                            logger.warning("send_reply: ⚠️  textarea清空但没有自己的消息")
+                        else:
+                            result["status"] = "failed"
+                            result["detail"] = "No self messages found and textarea not cleared"
+                            logger.error("send_reply: ✗ 没有自己的消息且textarea未清空")
+
                 except Exception as e:
-                    logger.warning(f"send_reply: 消息气泡验证失败（非致命）: {e}")
+                    logger.warning(f"send_reply: 消息气泡验证失败: {e}")
                     result["evidence"]["message_bubble_found"] = False
 
-                # 截图为证
+                    # 如果校验出错，退化到 textarea 清空判断
+                    if result["evidence"].get("textarea_cleared"):
+                        result["status"] = "uncertain"
+                        result["detail"] = f"Verification error but textarea cleared: {str(e)}"
+                    else:
+                        result["status"] = "failed"
+                        result["detail"] = f"Verification error and textarea not cleared: {str(e)}"
+
+                # 截图存档
                 try:
                     from pathlib import Path
+                    import datetime
+
                     screenshot_dir = Path("logs/send_reply_screenshots")
                     screenshot_dir.mkdir(parents=True, exist_ok=True)
 
-                    import datetime
                     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
                     screenshot_path = screenshot_dir / f"send_{conversation_id}_{timestamp}.png"
 
@@ -677,17 +703,7 @@ class GoofishPlaywrightPlatform:
                     logger.info(f"send_reply: 截图已保存: {screenshot_path}")
 
                 except Exception as e:
-                    logger.warning(f"send_reply: 截图失败（非致命）: {e}")
-
-                # 最终判断：textarea 清空即视为成功
-                if result["evidence"]["textarea_cleared"]:
-                    result["status"] = "sent"
-                    result["detail"] = "Message sent successfully (textarea cleared)"
-                    logger.info("send_reply: ✅ 发送成功")
-                else:
-                    result["status"] = "failed"
-                    result["detail"] = "Send verification failed"
-                    logger.error("send_reply: ✗ 发送失败")
+                    logger.warning(f"send_reply: 截图失败: {e}")
 
                 return result
 
@@ -699,200 +715,6 @@ class GoofishPlaywrightPlatform:
 
         # 在 browser_worker 线程内执行
         return self._run_with_page("send_reply", action)
-            import time
-
-            result = {
-                "status": "failed",
-                "conversation_id": conversation_id,
-                "content": content,
-                "method": None,
-                "evidence": {}
-            }
-
-            try:
-                # 步骤1: 确认当前打开的会话 == 目标 conversation_id
-                current_url = page.url
-                logger.info(f"send_reply: 当前URL = {current_url}")
-
-                # 闲鱼 IM URL 格式通常包含会话标识
-                # 简化验证：检查是否在 IM 页面
-                if "goofish.com/im" not in current_url and "message" not in current_url:
-                    result["status"] = "failed"
-                    result["detail"] = f"Not on IM page. Current URL: {current_url}"
-                    logger.error(f"send_reply failed: not on IM page")
-                    return result
-
-                logger.info("send_reply: 确认在 IM 页面")
-
-                # 步骤2: 定位 textarea 输入框
-                # 使用稳定的 placeholder 定位
-                textarea_selector = 'textarea[placeholder*="请输入消息"]'
-
-                try:
-                    textarea = page.locator(textarea_selector).first
-                    if not textarea.is_visible(timeout=3000):
-                        result["status"] = "failed"
-                        result["detail"] = "Textarea not visible"
-                        logger.error("send_reply failed: textarea not visible")
-                        return result
-
-                    logger.info("send_reply: 找到输入框")
-
-                    # 记录发送前的 textarea 值
-                    before_value = textarea.input_value()
-                    logger.info(f"send_reply: 发送前 textarea value = '{before_value}'")
-
-                except Exception as e:
-                    result["status"] = "failed"
-                    result["detail"] = f"Failed to locate textarea: {str(e)}"
-                    logger.error(f"send_reply failed: {e}")
-                    return result
-
-                # 步骤3: 填充内容
-                # 使用 fill() 触发 React 的 input 事件
-                try:
-                    textarea.fill(content)
-                    time.sleep(0.5)  # 等待 React 状态更新
-
-                    # 验证填充成功
-                    filled_value = textarea.input_value()
-                    if filled_value != content:
-                        result["status"] = "failed"
-                        result["detail"] = f"Fill failed. Expected: '{content}', Got: '{filled_value}'"
-                        logger.error(f"send_reply failed: fill verification failed")
-                        return result
-
-                    logger.info(f"send_reply: 内容已填充: '{content}'")
-
-                except Exception as e:
-                    result["status"] = "failed"
-                    result["detail"] = f"Failed to fill content: {str(e)}"
-                    logger.error(f"send_reply failed to fill: {e}")
-                    return result
-
-                # 步骤4: 发送（按 Enter）
-                try:
-                    # 优先使用 Enter 键发送
-                    textarea.press("Enter")
-                    result["method"] = "Enter"
-                    logger.info("send_reply: 已按 Enter 键")
-
-                    time.sleep(1)  # 等待发送完成
-
-                except Exception as e:
-                    # 备选：点击发送按钮
-                    logger.warning(f"send_reply: Enter 失败，尝试点击发送按钮: {e}")
-                    try:
-                        # 发送按钮的文字是 "发 送"（中间有空格）
-                        send_button = page.locator('span:has-text("发 送")').first
-                        send_button.click()
-                        result["method"] = "click"
-                        logger.info("send_reply: 已点击发送按钮")
-                        time.sleep(1)
-                    except Exception as e2:
-                        result["status"] = "failed"
-                        result["detail"] = f"Failed to send (Enter and click both failed): {str(e2)}"
-                        logger.error(f"send_reply failed to send: {e2}")
-                        return result
-
-                # 步骤5: 校验发送成功
-                # 证据1: textarea 被清空
-                try:
-                    after_value = textarea.input_value()
-                    textarea_cleared = (after_value == "" or after_value is None)
-                    result["evidence"]["textarea_cleared"] = textarea_cleared
-
-                    if not textarea_cleared:
-                        result["status"] = "failed"
-                        result["detail"] = f"Textarea not cleared after send. Value: '{after_value}'"
-                        logger.error(f"send_reply failed: textarea not cleared")
-                        return result
-
-                    logger.info("send_reply: ✓ 证据1: textarea 已清空")
-
-                except Exception as e:
-                    result["status"] = "failed"
-                    result["detail"] = f"Failed to verify textarea cleared: {str(e)}"
-                    logger.error(f"send_reply verification failed: {e}")
-                    return result
-
-                # 证据2: 消息区出现刚发的内容
-                try:
-                    # 查找包含刚发送内容的消息气泡
-                    # 闲鱼消息通常在特定容器内
-                    time.sleep(1)  # 等待消息渲染
-
-                    # 尝试多种可能的消息选择器
-                    message_found = False
-                    message_selectors = [
-                        f'div:has-text("{content}")',
-                        f'span:has-text("{content}")',
-                        f'[class*="message"]:has-text("{content}")',
-                    ]
-
-                    for selector in message_selectors:
-                        try:
-                            messages = page.locator(selector).all()
-                            if len(messages) > 0:
-                                # 验证最后一条消息是否包含我们的内容
-                                last_message = messages[-1]
-                                if last_message.is_visible():
-                                    message_text = last_message.text_content()
-                                    if content in message_text:
-                                        message_found = True
-                                        result["evidence"]["message_bubble_found"] = True
-                                        result["evidence"]["message_text"] = message_text
-                                        logger.info(f"send_reply: ✓ 证据2: 找到消息气泡: '{message_text}'")
-                                        break
-                        except:
-                            continue
-
-                    if not message_found:
-                        # 不强制要求找到消息气泡（可能渲染慢或选择器不对）
-                        # 但记录警告
-                        logger.warning("send_reply: ⚠️  未找到消息气泡，但 textarea 已清空")
-                        result["evidence"]["message_bubble_found"] = False
-
-                except Exception as e:
-                    logger.warning(f"send_reply: 消息气泡验证失败（非致命）: {e}")
-                    result["evidence"]["message_bubble_found"] = False
-
-                # 截图为证
-                try:
-                    from pathlib import Path
-                    screenshot_dir = Path("logs/send_reply_screenshots")
-                    screenshot_dir.mkdir(parents=True, exist_ok=True)
-
-                    import datetime
-                    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                    screenshot_path = screenshot_dir / f"send_{conversation_id}_{timestamp}.png"
-
-                    page.screenshot(path=str(screenshot_path), full_page=True)
-                    result["evidence"]["screenshot"] = str(screenshot_path)
-                    logger.info(f"send_reply: 截图已保存: {screenshot_path}")
-
-                except Exception as e:
-                    logger.warning(f"send_reply: 截图失败（非致命）: {e}")
-
-                # 最终判断：textarea 清空即视为成功
-                if result["evidence"]["textarea_cleared"]:
-                    result["status"] = "sent"
-                    result["detail"] = "Message sent successfully (textarea cleared)"
-                    logger.info("send_reply: ✅ 发送成功")
-                else:
-                    result["status"] = "failed"
-                    result["detail"] = "Send verification failed"
-                    logger.error("send_reply: ✗ 发送失败")
-
-                return result
-
-            except Exception as e:
-                logger.exception("send_reply unexpected error")
-                result["status"] = "failed"
-                result["detail"] = f"Unexpected error: {str(e)}"
-                return result
-
-        # 在 browser_worker 线程内执行
         return self._run_with_page("send_reply", action)
 
     def list_item(

@@ -937,3 +937,49 @@ async def get_trace_detail(
         }
     finally:
         conn.close()
+
+
+@router.post("/test-send")
+async def test_send_reply(request: dict):
+    """
+    临时测试接口：自动选会话 + 发送 test
+
+    Body:
+        {
+            "target": "买家昵称",
+            "content": "test"
+        }
+    """
+    try:
+        from platforms.goofish_playwright import GoofishPlaywrightPlatform
+
+        target = request.get("target")
+        content = request.get("content", "test")
+
+        if not target:
+            return {
+                "status": "error",
+                "detail": "Missing 'target' parameter"
+            }
+
+        platform = GoofishPlaywrightPlatform()
+
+        # 调用 send_reply（使用 approval_id="test" 绕过审批）
+        result = platform.send_reply(
+            conversation_id="test_conversation",
+            content=content,
+            approval_id="test",
+            target=target
+        )
+
+        return {
+            "status": "ok",
+            "send_result": result
+        }
+
+    except Exception as e:
+        logger.exception("test_send_reply failed")
+        return {
+            "status": "error",
+            "detail": str(e)
+        }

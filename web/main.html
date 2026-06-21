@@ -184,20 +184,22 @@
                         </div>
 
                         <div class="settings-section">
-                            <h3>LLM 配置</h3>
+                            <h3>LLM 配置（只读）</h3>
                             <div class="form-group">
-                                <label>API Base URL</label>
-                                <input type="text" id="llm-base-url" placeholder="例如: https://api.openai.com/v1">
+                                <label>当前模型</label>
+                                <div class="readonly-value" id="llm-model-display">加载中...</div>
                             </div>
                             <div class="form-group">
-                                <label>API Key</label>
-                                <input type="password" id="llm-api-key" placeholder="输入API密钥">
+                                <label>API 端点</label>
+                                <div class="readonly-value" id="llm-base-url-display">加载中...</div>
                             </div>
                             <div class="form-group">
-                                <label>模型</label>
-                                <input type="text" id="llm-model" placeholder="例如: gpt-4o-mini 或 glm-5.2">
+                                <label>协议</label>
+                                <div class="readonly-value" id="llm-protocol-display">加载中...</div>
                             </div>
-                            <button class="btn-primary" onclick="saveLLMConfig()">保存配置</button>
+                            <div class="info-message">
+                                💡 需要修改模型配置？请前往 <a href="/admin" style="color: #3b82f6; text-decoration: underline;">后台管理页面</a> 统一配置
+                            </div>
                         </div>
                     </div>
                 </div>

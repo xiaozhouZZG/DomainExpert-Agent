@@ -388,16 +388,19 @@ async function loadSettings() {
         console.error('加载状态失败:', error);
     }
 
-    // 加载LLM配置
+    // 加载LLM配置（只读显示）
     try {
         const config = await api('/api/admin/llm-config');
         if (config) {
-            document.getElementById('llm-base-url').value = config.base_url || '';
-            document.getElementById('llm-api-key').value = config.api_key ? '••••••••' : '';
-            document.getElementById('llm-model').value = config.model || '';
+            document.getElementById('llm-model-display').textContent = config.model || '未配置';
+            document.getElementById('llm-base-url-display').textContent = config.base_url || '未配置';
+            document.getElementById('llm-protocol-display').textContent = config.protocol || 'openai';
         }
     } catch (error) {
         console.error('加载LLM配置失败:', error);
+        document.getElementById('llm-model-display').textContent = '加载失败';
+        document.getElementById('llm-base-url-display').textContent = '加载失败';
+        document.getElementById('llm-protocol-display').textContent = '加载失败';
     }
 }
 
@@ -430,32 +433,6 @@ async function startLogin() {
         }, 2000);
     } catch (error) {
         alert('启动登录失败: ' + error.message);
-    }
-}
-
-async function saveLLMConfig() {
-    const baseUrl = document.getElementById('llm-base-url').value.trim();
-    const apiKey = document.getElementById('llm-api-key').value.trim();
-    const model = document.getElementById('llm-model').value.trim();
-
-    if (!baseUrl || !apiKey || !model) {
-        alert('请填写完整的LLM配置');
-        return;
-    }
-
-    try {
-        await api('/api/admin/llm-config', {
-            method: 'POST',
-            body: JSON.stringify({
-                protocol: 'openai',
-                base_url: baseUrl,
-                api_key: apiKey,
-                model: model
-            })
-        });
-        alert('配置已保存');
-    } catch (error) {
-        alert('保存失败: ' + error.message);
     }
 }
 

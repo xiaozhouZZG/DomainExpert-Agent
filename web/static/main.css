@@ -666,3 +666,26 @@ body {
 .btn-view-chat:hover {
     opacity: 0.9;
 }
+
+/* 只读值显示 */
+.readonly-value {
+    padding: 10px 12px;
+    background: #f8f9fa;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 14px;
+    color: #334155;
+    font-family: 'Courier New', monospace;
+}
+
+/* 信息提示框 */
+.info-message {
+    margin-top: 12px;
+    padding: 12px;
+    background: #eff6ff;
+    border-left: 3px solid #3b82f6;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #1e40af;
+    line-height: 1.6;
+}

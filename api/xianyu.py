@@ -2292,3 +2292,195 @@ async def return_conversation_to_bot(conversation_id: str):
     except Exception as exc:
         logger.exception("Failed to return conversation to bot: %s", conversation_id)
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/debug/dump-im-sendbox")
+async def dump_im_sendbox():
+    """Dump 闲鱼 IM 发送框 DOM - 只侦察，不发送消息"""
+    try:
+        from platforms.goofish_playwright import GoofishPlaywrightPlatform
+        from pathlib import Path
+        import time
+
+        platform = GoofishPlaywrightPlatform()
+
+        def action(page):
+            result = {
+                "status": "ok",
+                "initial_url": page.url,
+                "im_url": None,
+                "input_found": False,
+                "button_found": False,
+                "input_html": None,
+                "button_html": None,
+                "input_selector": None,
+                "button_selector": None,
+                "screenshots": [],
+                "html_files": [],
+            }
+
+            logger.info("=" * 80)
+            logger.info("开始 Dump 闲鱼 IM 发送框 DOM")
+            logger.info("=" * 80)
+
+            # 1. 导航到 IM 页面
+            logger.info("1. 导航到 goofish.com/im...")
+            page.goto("https://goofish.com/im", wait_until="domcontentloaded", timeout=30000)
+            time.sleep(3)
+            result["im_url"] = page.url
+            logger.info(f"   ✓ 当前URL: {page.url}")
+
+            # 截图1：IM 列表页
+            dump_dir = Path("logs/im_sendbox_dump")
+            dump_dir.mkdir(parents=True, exist_ok=True)
+
+            screenshot1 = dump_dir / "01_im_list.png"
+            page.screenshot(path=str(screenshot1), full_page=True)
+            result["screenshots"].append(str(screenshot1))
+            logger.info(f"   ✓ 截图已保存: {screenshot1}")
+
+            # 2. 尝试点击第一个会话
+            logger.info("2. 尝试打开会话...")
+            conversation_selectors = [
+                'div[class*="conversation"]',
+                'div[class*="item"]',
+                'div[class*="chat"]',
+                'div[class*="message"]',
+                '.list-item',
+                '.conversation-item',
+                'li',
+            ]
+
+            clicked = False
+            for selector in conversation_selectors:
+                try:
+                    elements = page.locator(selector).all()
+                    if elements and len(elements) > 0:
+                        logger.info(f"   找到 {len(elements)} 个元素 (selector: {selector})")
+                        elements[0].click()
+                        time.sleep(2)
+                        clicked = True
+                        logger.info(f"   ✓ 已点击第一个会话")
+                        break
+                except:
+                    continue
+
+            if not clicked:
+                logger.warning("   ⚠️  未找到会话列表")
+
+            # 截图2：会话详情页
+            screenshot2 = dump_dir / "02_chat_detail.png"
+            page.screenshot(path=str(screenshot2), full_page=True)
+            result["screenshots"].append(str(screenshot2))
+            logger.info(f"   ✓ 截图已保存: {screenshot2}")
+
+            # 3. Dump 输入框 DOM
+            logger.info("3. Dump 输入框 DOM...")
+            input_selectors = [
+                'textarea',
+                'input[type="text"]',
+                'div[contenteditable="true"]',
+                'div[role="textbox"]',
+                '[placeholder*="输入"]',
+                '[placeholder*="消息"]',
+                '[placeholder*="说点什么"]',
+                '[placeholder*="回复"]',
+            ]
+
+            for selector in input_selectors:
+                try:
+                    elem = page.locator(selector).first
+                    if elem and elem.is_visible():
+                        result["input_found"] = True
+                        result["input_selector"] = selector
+                        result["input_html"] = elem.evaluate('el => el.outerHTML')
+                        logger.info(f"   ✓ 找到输入框 (selector: {selector})")
+                        logger.info(f"\n输入框 outerHTML:\n{result['input_html']}\n")
+
+                        # 保存到文件
+                        input_file = dump_dir / "input_element.html"
+                        input_file.write_text(result["input_html"], encoding='utf-8')
+                        result["html_files"].append(str(input_file))
+                        break
+                except:
+                    continue
+
+            if not result["input_found"]:
+                logger.warning("   ✗ 未找到输入框")
+
+            # 4. Dump 发送按钮 DOM
+            logger.info("4. Dump 发送按钮 DOM...")
+            button_selectors = [
+                'button:has-text("发送")',
+                'div:has-text("发送")',
+                'span:has-text("发送")',
+                'button[type="submit"]',
+                'button[class*="send"]',
+                'div[class*="send"]',
+                '[aria-label*="发送"]',
+                'button',
+            ]
+
+            for selector in button_selectors:
+                try:
+                    elem = page.locator(selector).first
+                    if elem and elem.is_visible():
+                        elem_text = elem.text_content()
+                        if "发送" in elem_text or selector == 'button':
+                            result["button_found"] = True
+                            result["button_selector"] = selector
+                            result["button_html"] = elem.evaluate('el => el.outerHTML')
+                            logger.info(f"   ✓ 找到发送按钮 (selector: {selector})")
+                            logger.info(f"\n发送按钮 outerHTML:\n{result['button_html']}\n")
+
+                            # 保存到文件
+                            button_file = dump_dir / "send_button.html"
+                            button_file.write_text(result["button_html"], encoding='utf-8')
+                            result["html_files"].append(str(button_file))
+                            break
+                except:
+                    continue
+
+            if not result["button_found"]:
+                logger.warning("   ✗ 未找到发送按钮")
+
+            # 5. 截取输入区特写
+            if result["input_found"] or result["button_found"]:
+                logger.info("5. 截取输入区特写...")
+                try:
+                    selector = result["input_selector"] or result["button_selector"]
+                    elem = page.locator(selector).first
+                    screenshot3 = dump_dir / "03_input_area_closeup.png"
+                    elem.screenshot(path=str(screenshot3))
+                    result["screenshots"].append(str(screenshot3))
+                    logger.info(f"   ✓ 特写已保存: {screenshot3}")
+                except Exception as e:
+                    logger.warning(f"   ⚠️  截取特写失败: {e}")
+
+            # 6. Dump 完整页面 HTML
+            logger.info("6. Dump 完整页面 HTML...")
+            full_html = page.content()
+            full_html_file = dump_dir / "full_page.html"
+            full_html_file.write_text(full_html, encoding='utf-8')
+            result["html_files"].append(str(full_html_file))
+            logger.info(f"   ✓ 完整HTML已保存: {full_html_file}")
+
+            logger.info("=" * 80)
+            logger.info("Dump 完成")
+            logger.info("=" * 80)
+
+            return result
+
+        result = platform.browser_manager.with_page("dump_im_sendbox", action)
+        return {
+            "status": "success",
+            "data": result,
+            "detail": "IM发送框DOM已dump，请查看logs/im_sendbox_dump/"
+        }
+
+    except Exception as exc:
+        logger.exception("dump IM sendbox failed")
+        return {
+            "status": "error",
+            "detail": str(exc)
+        }

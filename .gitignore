@@ -76,3 +76,4 @@ uploads/
 # 数据目录（保留结构但不推数据库文件）
 data/*.db
 data/*.sqlite
+data/browser_state/

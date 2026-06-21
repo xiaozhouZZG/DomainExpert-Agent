@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>闲鱼运营驾驶舱 - EnterpriseAgent</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/xianyu.css?v=5">
+</head>
+<body>
+    <div class="xianyu-shell">
+        <aside class="xianyu-sidebar" aria-label="导航">
+            <a href="/dashboard" class="side-link" title="运营总览">
+                <span class="side-icon">DB</span>
+            </a>
+            <a href="/xianyu" class="side-link active" title="闲鱼驾驶舱">
+                <span class="side-icon">XY</span>
+            </a>
+            <a href="/" class="side-link" title="客服会话">
+                <span class="side-icon">CS</span>
+            </a>
+            <a href="/admin" class="side-link" title="后台管理">
+                <span class="side-icon">AD</span>
+            </a>
+        </aside>
+
+        <div class="xianyu-app">
+            <header class="xianyu-topbar">
+                <div class="title-block">
+                    <div class="title-mark">XY</div>
+                    <div>
+                        <div class="title-main">闲鱼运营驾驶舱</div>
+                        <div class="title-sub">真实登录、真实消息、真实竞品、审批驱动的运营动作</div>
+                    </div>
+                </div>
+
+                <div class="topbar-actions">
+                    <label class="token-field">
+                        <span>管理 Token</span>
+                        <input id="tokenInput" type="password" placeholder="Bearer Token">
+                    </label>
+                    <button id="saveTokenBtn" class="button button-primary" type="button">保存并连接</button>
+                    <button id="refreshStatusBtn" class="button button-secondary" type="button">刷新状态</button>
+                    <button id="startLoginBtn" class="button button-secondary" type="button">打开登录浏览器</button>
+                </div>
+            </header>
+
+            <main class="xianyu-workspace">
+                <section class="status-strip">
+                    <article class="status-card">
+                        <span class="label">登录状态</span>
+                        <strong id="storageState">暂无</strong>
+                    </article>
+                    <article class="status-card">
+                        <span class="label">在售商品数</span>
+                        <strong id="metricListings">暂无</strong>
+                    </article>
+                    <article class="status-card">
+                        <span class="label">买家会话数</span>
+                        <strong id="metricConversations">暂无</strong>
+                    </article>
+                    <article class="status-card state-card">
+                        <span class="label">竞品调研数</span>
+                        <strong id="metricCompetitors">暂无</strong>
+                    </article>
+                    <article class="status-card">
+                        <span class="label">已生成方案数</span>
+                        <strong id="metricArtifacts">暂无</strong>
+                    </article>
+                    <article class="status-card state-card">
+                        <span class="label">面板刷新</span>
+                        <div id="statusPill" class="status-pill source-idle">未连接</div>
+                    </article>
+                </section>
+
+                <section class="status-strip">
+                    <article class="status-card">
+                        <span class="label">登录任务</span>
+                        <strong id="loginTaskState">空闲</strong>
+                    </article>
+                    <article class="status-card">
+                        <span class="label">今日买家消息</span>
+                        <strong id="metricMessages">暂无</strong>
+                    </article>
+                    <article class="status-card">
+                        <span class="label">待回复</span>
+                        <strong id="metricPendingReply">暂无</strong>
+                    </article>
+                    <article class="status-card">
+                        <span class="label">待审批</span>
+                        <strong id="metricApprovals">0</strong>
+                    </article>
+                    <article class="status-card">
+                        <span class="label">平台模式</span>
+                        <strong id="platformMode">goofish</strong>
+                    </article>
+                </section>
+
+                <section class="hero-grid">
+                    <section class="panel browser-panel">
+                        <div class="panel-header">
+                            <div>
+                                <div class="eyebrow">真实执行画面</div>
+                                <h2>浏览器实时截图</h2>
+                            </div>
+                            <div class="panel-actions">
+                                <div id="browserSource" class="source-pill source-not-connected">未接入</div>
+                                <button id="browserFullscreenBtn" class="icon-button" type="button" title="放大截图">放大</button>
+                            </div>
+                        </div>
+
+                        <div class="browser-stage" id="browserStage">
+                            <div class="browser-overlay">
+                                <span class="live-pill"><span class="live-dot"></span>LIVE</span>
+                                <span id="browserAction">等待真实浏览器截图</span>
+                            </div>
+                            <img id="browserFrame" alt="闲鱼真实执行截图" hidden>
+                            <div id="browserEmpty" class="browser-empty">
+                                <div class="skeleton-camera"></div>
+                                <div class="empty-title">当前没有真实截图</div>
+                                <div class="empty-copy">先在本机完成扫码登录，再触发真实消息读取或竞品抓取，画面才会开始更新。</div>
+                            </div>
+                            <div class="browser-footer">
+                                <div id="browserMeta">当前只展示真实执行截图；没有截图时明确留空。</div>
+                                <div id="browserTimestamp">--</div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="panel execution-panel">
+                        <div class="panel-header">
+                            <div>
+                                <div class="eyebrow">实时执行流</div>
+                                <h2>事件时间线</h2>
+                            </div>
+                        </div>
+                        <div id="executionTimeline" class="timeline empty">暂无真实执行事件。</div>
+                    </section>
+                </section>
+
+                <section class="operations-grid">
+                    <section class="panel">
+                        <div class="panel-header">
+                            <div>
+                                <div class="eyebrow">买家消息</div>
+                                <h2>真实读取</h2>
+                            </div>
+                            <button id="loadMessagesBtn" class="button button-secondary" type="button">读取消息</button>
+                        </div>
+                        <div id="messagesStatus" class="inline-status status-idle"><span>空闲</span></div>
+                        <div id="messagesList" class="card-list empty-state">请先扫码登录闲鱼，再读取真实买家消息。</div>
+                    </section>
+
+                    <section class="panel">
+                        <div class="panel-header">
+                            <div>
+                                <div class="eyebrow">在售商品</div>
+                                <h2>真实读取</h2>
+                            </div>
+                            <button id="loadListingsBtn" class="button button-secondary" type="button">读取在售商品</button>
+                        </div>
+                        <div id="listingsStatus" class="inline-status status-idle"><span>空闲</span></div>
+                        <div id="listingsList" class="card-list empty-state">请先完成真实闲鱼登录，再读取当前账号在售商品。</div>
+                    </section>
+
+                    <section class="panel">
+                        <div class="panel-header">
+                            <div>
+                                <div class="eyebrow">回复草稿</div>
+                                <h2>真实 LLM</h2>
+                            </div>
+                        </div>
+                        <label class="field">
+                            <span>会话 ID</span>
+                            <input id="conversationIdInput" type="text" placeholder="从左侧真实消息选择">
+                        </label>
+                        <label class="field">
+                            <span>买家消息</span>
+                            <textarea id="buyerMessageInput" rows="4" placeholder="读取真实消息后自动填充"></textarea>
+                        </label>
+                        <div class="button-row">
+                            <button id="draftBtn" class="button button-primary" type="button">生成草稿</button>
+                            <button id="approvalReplyBtn" class="button button-danger-ghost" type="button">提交发送审批</button>
+                        </div>
+                        <label class="field">
+                            <span>草稿内容</span>
+                            <textarea id="replyDraftInput" rows="7" placeholder="这里只显示真实 LLM 生成的草稿"></textarea>
+                        </label>
+                        <div id="replyRagMeta" class="callout neutral">
+                            <strong>RAG 检索证据</strong>
+                            <p>尚未执行检索。</p>
+                        </div>
+                        <div id="replyRagResults" class="card-list empty-state">执行回复生成后，这里展示真实命中的知识片段和分数。</div>
+                    </section>
+
+                    <section class="panel">
+                        <div class="panel-header">
+                            <div>
+                                <div class="eyebrow">竞品比价</div>
+                                <h2>公开信息抓取</h2>
+                            </div>
+                            <button id="loadCompetitorsBtn" class="button button-secondary" type="button">抓取竞品</button>
+                        </div>
+                        <label class="field">
+                            <span>关键词</span>
+                            <input id="keywordInput" type="text" placeholder="例如：iPhone 15 Pro">
+                        </label>
+                        <div id="competitorsStatus" class="inline-status status-idle"><span>空闲</span></div>
+                        <div id="competitorList" class="card-list empty-state">输入真实关键词后抓取公开竞品信息。</div>
+                        <div id="pricingAdvice" class="advice-panel" hidden></div>
+                    </section>
+
+                    <section class="panel">
+                        <div class="panel-header">
+                            <div>
+                                <div class="eyebrow">AI 上架方案</div>
+                                <h2>方案预览</h2>
+                            </div>
+                            <button id="generateListingPlanBtn" class="button button-primary" type="button">生成方案</button>
+                        </div>
+                        <label class="field panel-field">
+                            <span>商品信息</span>
+                            <textarea id="listingProductInfoInput" rows="4" placeholder="可选：成色、配件、成本、库存、发货限制等。留空则只基于关键词和真实竞品。"></textarea>
+                        </label>
+                        <div id="listingPlanStatus" class="inline-status status-idle"><span>空闲</span></div>
+                        <div id="listingPlanPreview" class="card-list empty-state">先抓取真实竞品，再生成只读上架方案。</div>
+                    </section>
+
+                    <section class="panel">
+                        <div class="panel-header">
+                            <div>
+                                <div class="eyebrow">引流文案</div>
+                                <h2>只读方案</h2>
+                            </div>
+                            <button id="generateMarketingPlanBtn" class="button button-primary" type="button">生成引流方案</button>
+                        </div>
+                        <div id="marketingPlanStatus" class="inline-status status-idle"><span>空闲</span></div>
+                        <div id="marketingPlanPreview" class="card-list empty-state">基于真实商品方案和真实竞品，生成只读引流建议与文案。</div>
+                    </section>
+
+                    <section class="panel">
+                        <div class="panel-header">
+                            <div>
+                                <div class="eyebrow">选品 / 利润分析</div>
+                                <h2>只读分析</h2>
+                            </div>
+                            <button id="generateProfitAnalysisBtn" class="button button-primary" type="button">生成选品分析</button>
+                        </div>
+                        <label class="field panel-field">
+                            <span>假设进价</span>
+                            <input id="assumedCostInput" type="number" step="0.01" min="0" placeholder="例如：10（留空则不计算利润）">
+                        </label>
+                        <div id="profitAnalysisStatus" class="inline-status status-idle"><span>空闲</span></div>
+                        <div id="profitAnalysisPreview" class="card-list empty-state">基于真实竞品价格与想要数，生成只读选品和利润分析。</div>
+                    </section>
+
+                    <section class="panel">
+                        <div class="panel-header">
+                            <div>
+                                <div class="eyebrow">运营动作</div>
+                                <h2>审批驱动</h2>
+                            </div>
+                        </div>
+                        <div class="tabs" role="tablist">
+                            <button class="tab active" type="button" data-tab="listing">商品上架</button>
+                            <button class="tab" type="button" data-tab="shipping">发货</button>
+                        </div>
+
+                        <div id="listingTab" class="tab-panel active">
+                            <label class="field">
+                                <span>商品 JSON</span>
+                                <textarea id="listingJsonInput" rows="8" placeholder='{"title":"","price":0,"description":"","inventory":0}'></textarea>
+                            </label>
+                            <button id="submitListingBtn" class="button button-danger-ghost" type="button">创建上架审批</button>
+                        </div>
+
+                        <div id="shippingTab" class="tab-panel">
+                            <label class="field">
+                                <span>订单 ID</span>
+                                <input id="shipOrderIdInput" type="text" placeholder="真实订单 ID">
+                            </label>
+                            <label class="field">
+                                <span>发货 JSON</span>
+                                <textarea id="shipmentJsonInput" rows="7" placeholder='{"carrier":"","tracking_no":"","ship_note":""}'></textarea>
+                            </label>
+                            <button id="submitShippingBtn" class="button button-danger-ghost" type="button">创建发货审批</button>
+                        </div>
+                    </section>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <div id="imageModal" class="image-modal" hidden>
+        <div class="image-modal-backdrop" data-close-modal="true"></div>
+        <div class="image-modal-content" role="dialog" aria-modal="true" aria-label="放大真实执行截图">
+            <div class="image-modal-header">
+                <div>
+                    <div class="eyebrow">放大画面</div>
+                    <h3>真实执行截图</h3>
+                </div>
+                <button id="closeImageModalBtn" class="icon-button" type="button" title="关闭">关闭</button>
+            </div>
+            <div class="image-modal-stage">
+                <img id="imageModalImg" alt="放大真实执行截图">
+            </div>
+            <div class="image-modal-footer">
+                <span id="imageModalMeta">--</span>
+                <span id="imageModalTime">--</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast" hidden></div>
+    <script src="/static/xianyu.js?v=9"></script>
+</body>
+</html>

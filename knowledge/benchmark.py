@@ -21,12 +21,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from knowledge.vector_index import FaissHNSWIndex, SqliteBruteForceIndex
 
 
-def generate_fake_docs(n: int = 1000000) -> List[Dict]:
-    """生成假知识（可复现）
+def generate_benchmark_docs(n: int = 1000000) -> List[Dict]:
+    """生成基准知识（可复现）
 
     策略: 用固定种子生成随机文本，节省内存
     """
-    print(f"生成 {n:,} 条假知识...")
+    print(f"生成 {n:,} 条基准知识...")
     random.seed(42)
     np.random.seed(42)
 
@@ -157,7 +157,7 @@ def main():
     print("（提示: 设置环境变量 BENCHMARK_DOCS=1000000 测试百万级）\n")
 
     # 生成数据
-    docs = generate_fake_docs(num_docs)
+    docs = generate_benchmark_docs(num_docs)
 
     # 测试 FAISS HNSW
     try:

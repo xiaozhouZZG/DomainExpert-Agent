@@ -13,11 +13,12 @@ from fastapi import APIRouter, HTTPException, Depends, Header, UploadFile, File
 from pydantic import BaseModel
 
 from database.connection import get_db_connection
-from knowledge.rag_engine import get_rag_engine
+from knowledge.hybrid_rag_engine import get_hybrid_engine
 from knowledge.document_loader import DocumentLoader
 from knowledge.chunker import SimpleChunker
 from observability.metrics import get_metrics
 from core.config_manager import ConfigManager
+from config import settings
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -28,24 +29,10 @@ MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 
 # ============ 认证 ============
 
-def verify_admin_token(authorization: str = Header(None)):
-    """验证管理员 Token"""
-    if not authorization:
-        raise HTTPException(status_code=401, detail="未提供认证令牌")
-
-    token = authorization.replace("Bearer ", "")
-    expected_token = os.getenv("DEFAULT_TOKEN", "demo-token")
-
-    if token != expected_token:
-        raise HTTPException(status_code=403, detail="无效的认证令牌")
-
-    return token
-
-
 # ============ 仪表盘统计 ============
 
 @router.get("/dashboard")
-async def get_dashboard_stats(token: str = Depends(verify_admin_token)):
+async def get_dashboard_stats():
     """获取仪表盘统计数据（全部从真实数据聚合，无假数据）"""
 
     conn = get_db_connection()
@@ -168,7 +155,7 @@ async def get_dashboard_stats(token: str = Depends(verify_admin_token)):
 # ============ 知识库管理 ============
 
 @router.get("/knowledge/list")
-async def list_knowledge_documents(token: str = Depends(verify_admin_token)):
+async def list_knowledge_documents():
     """获取知识库文档列表"""
 
     conn = get_db_connection()
@@ -201,7 +188,6 @@ async def list_knowledge_documents(token: str = Depends(verify_admin_token)):
 @router.post("/knowledge/upload")
 async def upload_knowledge_document(
     file: UploadFile = File(...),
-    token: str = Depends(verify_admin_token)
 ):
     """上传文档到知识库（支持 PDF/Word/Markdown/文本）"""
 
@@ -306,7 +292,6 @@ class DocumentUpload(BaseModel):
 @router.post("/knowledge/upload-text")
 async def upload_text_document(
     doc: DocumentUpload,
-    token: str = Depends(verify_admin_token)
 ):
     """上传纯文本到知识库（兼容旧接口）"""
 
@@ -324,7 +309,7 @@ async def upload_text_document(
         doc_id = cursor.lastrowid
 
         # 触发 RAG 引擎重新索引（如果支持）
-        rag = get_rag_engine()
+        rag = get_hybrid_engine()
         if hasattr(rag, 'reindex'):
             rag.reindex()
 
@@ -345,7 +330,6 @@ async def upload_text_document(
 @router.delete("/knowledge/{doc_id}")
 async def delete_knowledge_document(
     doc_id: int,
-    token: str = Depends(verify_admin_token)
 ):
     """删除知识库文档"""
 
@@ -372,7 +356,6 @@ async def get_conversations(
     session_id: str = None,
     trace_id: str = None,
     limit: int = 50,
-    token: str = Depends(verify_admin_token)
 ):
     """查询对话记录"""
 
@@ -425,7 +408,6 @@ async def get_conversations(
 @router.get("/traces/{trace_id}")
 async def get_trace_details(
     trace_id: str,
-    token: str = Depends(verify_admin_token)
 ):
     """获取完整执行 trace"""
 
@@ -475,7 +457,6 @@ async def get_trace_details(
 @router.delete("/conversations/{session_id}")
 async def delete_conversation(
     session_id: str,
-    token: str = Depends(verify_admin_token)
 ):
     """删除指定会话的所有对话记录"""
 
@@ -520,7 +501,7 @@ async def delete_conversation(
 # ============ 系统状态 ============
 
 @router.get("/system/status")
-async def get_system_status(token: str = Depends(verify_admin_token)):
+async def get_system_status():
     """获取系统状态"""
 
     # 获取 LLM 配置（优先从数据库读取，回退到环境变量）
@@ -556,7 +537,6 @@ async def get_request_logs(
     authorization: str = Header(None)
 ):
     """获取最近的请求日志"""
-    verify_admin_token(authorization)
 
     from middleware.request_logger import get_recent_logs
     logs = get_recent_logs(limit)
@@ -574,7 +554,7 @@ class LLMConfig(BaseModel):
 
 
 @router.get("/llm-config")
-async def get_llm_config(token: str = Depends(verify_admin_token)):
+async def get_llm_config():
     """获取 LLM 配置（API Key 脱敏）"""
     config = ConfigManager.get_llm_config()
 
@@ -593,7 +573,6 @@ async def get_llm_config(token: str = Depends(verify_admin_token)):
 @router.post("/llm-config")
 async def save_llm_config(
     config: LLMConfig,
-    token: str = Depends(verify_admin_token)
 ):
     """保存 LLM 配置"""
     try:
@@ -624,7 +603,6 @@ async def get_available_models(
     base_url: str,
     api_key: str,
     protocol: str = "openai",
-    token: str = Depends(verify_admin_token)
 ):
     """获取可用模型列表（支持多协议）"""
 
@@ -635,7 +613,7 @@ async def get_available_models(
         from core.llm_client import create_llm_client
 
         # 创建客户端（model 参数在获取列表时不重要，用空字符串）
-        client = create_llm_client(protocol, base_url, api_key, "dummy")
+        client = create_llm_client(protocol, base_url, api_key, "model-probe")
         models = await client.list_models()
 
         if not models:
@@ -674,7 +652,6 @@ class TestConnectionRequest(BaseModel):
 @router.post("/llm-config/test")
 async def test_llm_connection(
     req: TestConnectionRequest,
-    token: str = Depends(verify_admin_token)
 ):
     """测试 LLM 连接（支持多协议）"""
 
@@ -728,7 +705,7 @@ class RAGConfigUpdate(BaseModel):
 
 
 @router.get("/rag-config")
-async def get_rag_config(token: str = Depends(verify_admin_token)):
+async def get_rag_config():
     """获取 RAG 配置"""
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -753,7 +730,6 @@ async def get_rag_config(token: str = Depends(verify_admin_token)):
 @router.post("/rag-config")
 async def update_rag_config(
     config: RAGConfigUpdate,
-    token: str = Depends(verify_admin_token)
 ):
     """更新 RAG 阈值配置"""
     conn = get_db_connection()
@@ -784,7 +760,6 @@ class CSChannelsUpdate(BaseModel):
 @router.post("/customer-service-channels")
 async def update_cs_channels(
     config: CSChannelsUpdate,
-    token: str = Depends(verify_admin_token)
 ):
     """更新客服渠道配置"""
     conn = get_db_connection()
@@ -808,7 +783,6 @@ async def update_cs_channels(
 async def get_handoff_tickets(
     status: str = None,
     limit: int = 50,
-    token: str = Depends(verify_admin_token)
 ):
     """获取转人工工单列表"""
     conn = get_db_connection()
@@ -853,7 +827,6 @@ async def get_handoff_tickets(
 async def get_execution_traces(
     session_id: str = None,
     limit: int = 50,
-    token: str = Depends(verify_admin_token)
 ):
     """获取执行轨迹列表（按会话或全部）"""
     conn = get_db_connection()
@@ -897,7 +870,6 @@ async def get_execution_traces(
 @router.get("/execution-traces/{trace_id}")
 async def get_trace_detail(
     trace_id: str,
-    token: str = Depends(verify_admin_token)
 ):
     """获取单个执行轨迹的详细步骤"""
     import json
@@ -946,4 +918,3 @@ async def get_trace_detail(
         }
     finally:
         conn.close()
-

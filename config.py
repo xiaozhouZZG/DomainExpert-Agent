@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     # API 服务
     api_host: str = Field(default="0.0.0.0", alias="API_HOST")
     api_port: int = Field(default=8802, alias="API_PORT")
+    listing_platform: str = Field(default="goofish", alias="LISTING_PLATFORM")
 
     # 模型配置（本地路径）
     embedding_model_path: str = Field(default="BAAI/bge-small-zh-v1.5", alias="EMBEDDING_MODEL_PATH")
@@ -35,6 +36,7 @@ class Settings(BaseSettings):
 
     # 管理员密码
     admin_password: str = Field(default="admin123", alias="ADMIN_PASSWORD")
+    default_token: Optional[str] = Field(default=None, alias="DEFAULT_TOKEN")
 
     # ========== RAG 检索配置（新增）==========
     # 向量索引后端: auto | faiss_hnsw | sqlite_bruteforce

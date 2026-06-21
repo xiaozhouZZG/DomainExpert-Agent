@@ -93,15 +93,29 @@ class LangGraphEngine(OrchestratorInterface):
                     # 设置线程本地变量供工具使用
                     threading.current_thread().current_customer_id = state.get("current_customer_id", "CUST001")
                     threading.current_thread().session_id = state.get("session_id", "UNKNOWN")
+                    threading.current_thread().trace_id = state.get("trace_id", "UNKNOWN")
                     logger.info(f"[{name}] 设置用户上下文: {state.get('current_customer_id')}")
                     # 调用 agent graph
                     result = agent_graph.invoke(state)
+
                     # 记录 tool_calls 证据（检查所有消息）
                     if result.get("messages"):
                         for msg in result["messages"]:
                             if hasattr(msg, "tool_calls") and msg.tool_calls:
                                 logger.info(f"[{name}] 🔧 LLM tool_calls: {msg.tool_calls}")
-                    return result
+
+                    result_messages = result.get("messages", [])
+                    previous_count = len(state.get("messages", []))
+                    if len(result_messages) >= previous_count:
+                        new_messages = result_messages[previous_count:]
+                    else:
+                        new_messages = result_messages
+
+                    return {
+                        "messages": new_messages,
+                        "completed_steps": [name],
+                        "current_agent": name
+                    }
                 return agent_node
 
             workflow.add_node(agent_name, make_agent_node(react_agent, agent_name))
@@ -118,6 +132,7 @@ class LangGraphEngine(OrchestratorInterface):
                 "order_agent": "order_agent",
                 "analytics_agent": "analytics_agent",
                 "report_agent": "report_agent",
+                "xianyu_agent": "xianyu_agent",
                 "finish": END
             }
         )
@@ -177,6 +192,7 @@ class LangGraphEngine(OrchestratorInterface):
 - order_agent: 订单查询、修改、取消
 - analytics_agent: 数据分析、库存查询、统计
 - report_agent: 报表生成
+- xianyu_agent: 闲鱼运营、买家消息、竞品比价、商品上下架、发货
 
 判断规则：
 1. 如果最后的回复已完整回答用户问题，回复 finish
@@ -190,7 +206,7 @@ class LangGraphEngine(OrchestratorInterface):
 
             logger.info(f"[Supervisor] LLM 路由决策: {decision}")
 
-            all_agents = ["customer_service_agent", "order_agent", "analytics_agent", "report_agent"]
+            all_agents = ["customer_service_agent", "order_agent", "analytics_agent", "report_agent", "xianyu_agent"]
 
             # 如果决策不是有效的 agent 名称，结束
             if decision not in all_agents:
@@ -213,25 +229,29 @@ class LangGraphEngine(OrchestratorInterface):
         except Exception as e:
             logger.error(f"[Supervisor] LLM 路由失败: {e}")
             # 降级到简单规则
+            completed = set(route_history)
             keywords = {
                 "customer_service_agent": ["退货", "换货", "咨询", "客服", "售后", "帮助", "问题"],
                 "order_agent": ["订单", "查询订单", "取消订单", "修改订单"],
                 "analytics_agent": ["分析", "数据", "统计", "销售额", "趋势"],
-                "report_agent": ["报表", "生成报告", "导出", "excel", "pdf"]
+                "report_agent": ["报表", "生成报告", "导出", "excel", "pdf"],
+                "xianyu_agent": ["闲鱼", "goofish", "买家消息", "竞品", "比价", "上架", "下架", "发货"]
             }
 
             for agent, words in keywords.items():
                 if agent not in completed and any(w in user_query for w in words):
                     return {
                         "next_action": agent,
-                        "iteration_count": state.get("iteration_count", 0) + 1
+                        "route_history": route_history + [agent],
+                        "iteration_count": iteration + 1
                     }
 
             # 默认路由到客服
             if "customer_service_agent" not in completed:
                 return {
                     "next_action": "customer_service_agent",
-                    "iteration_count": state.get("iteration_count", 0) + 1
+                    "route_history": route_history + ["customer_service_agent"],
+                    "iteration_count": iteration + 1
                 }
 
             return {"next_action": "finish"}
@@ -258,6 +278,7 @@ class LangGraphEngine(OrchestratorInterface):
             "current_customer_id": customer_id,
             "collected_slots": {},
             "iteration_count": 0,
+            "route_history": [],
             "completed_steps": [],
             "next_action": "",
             "current_agent": "",
@@ -351,6 +372,7 @@ class LangGraphEngine(OrchestratorInterface):
             "trace_id": str(uuid.uuid4()),
             "start_time": time.time(),
             "iteration_count": 0,
+            "route_history": [],
             "completed_steps": [],
             "next_action": "",
             "current_agent": "",

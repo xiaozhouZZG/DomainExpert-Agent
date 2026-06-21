@@ -9,6 +9,7 @@ from . import approval
 from . import code_executor
 from . import report_gen
 from . import handoff
+from . import xianyu
 
 __all__ = [
     "register_tool",

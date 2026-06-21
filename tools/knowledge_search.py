@@ -33,9 +33,9 @@ def search_knowledge(
         JSON格式的检索结果(包含文本和引用来源)
     """
     try:
-        from knowledge.rag_engine import get_rag_engine
+        from knowledge.hybrid_rag_engine import get_hybrid_engine
 
-        rag = get_rag_engine()  # 使用单例
+        rag = get_hybrid_engine()  # 使用混合检索单例
         results = rag.search(query, top_k=top_k, threshold=threshold)
 
         if not results:

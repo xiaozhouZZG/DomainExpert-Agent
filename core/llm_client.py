@@ -38,6 +38,32 @@ class LLMClient:
 
         self.api_key = api_key if api_key else ""
         self.model = model if model else ""
+        self.last_error: Optional[Dict[str, Any]] = None
+
+    def _clear_last_error(self) -> None:
+        self.last_error = None
+
+    def _set_last_error(
+        self,
+        *,
+        message: str,
+        code: Optional[str] = None,
+        status_code: Optional[int] = None,
+        response_text: Optional[str] = None,
+        url: Optional[str] = None,
+    ) -> None:
+        self.last_error = {
+            "message": message,
+            "code": code,
+            "status_code": status_code,
+            "response_text": response_text,
+            "url": url,
+            "model": self.model,
+            "protocol": self.protocol,
+        }
+
+    def get_last_error(self) -> Optional[Dict[str, Any]]:
+        return dict(self.last_error) if self.last_error else None
 
     async def chat(self, messages: List[Dict[str, str]], temperature: float = 0.7) -> str:
         """
@@ -50,13 +76,17 @@ class LLMClient:
         Returns:
             str: 模型回复内容，失败返回 ""
         """
+        self._clear_last_error()
+
         # 配置校验
         if not self.config_valid or not self.base_url:
             logger.error("LLM 配置无效（base_url 为空），无法调用")
+            self._set_last_error(message="LLM base_url is empty.", code="invalid_config")
             return ""
 
         if not self.api_key:
             logger.error("LLM API Key 为空，无法调用")
+            self._set_last_error(message="LLM api_key is empty.", code="invalid_config")
             return ""
 
         try:
@@ -68,9 +98,11 @@ class LLMClient:
                 return await self._chat_gemini(messages, temperature)
             else:
                 logger.error(f"不支持的协议: {self.protocol}")
+                self._set_last_error(message=f"Unsupported protocol: {self.protocol}", code="unsupported_protocol")
                 return ""
         except Exception as e:
             logger.error(f"LLM 调用顶层异常: {e}", exc_info=True)
+            self._set_last_error(message=str(e), code="unexpected_exception")
             return ""
 
     async def list_models(self) -> List[str]:
@@ -111,7 +143,8 @@ class LLMClient:
             headers = {
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",
-                "Accept": "application/json"
+                "Accept": "application/json",
+                "User-Agent": "EnterpriseAgent/1.0"
             }
 
             payload = {
@@ -126,7 +159,27 @@ class LLMClient:
 
                 # HTTP 错误处理
                 if response.status_code != 200:
+                    error_message = f"HTTP {response.status_code}"
+                    error_code = None
+                    try:
+                        error_payload = response.json()
+                        if isinstance(error_payload, dict):
+                            error_obj = error_payload.get("error")
+                            if isinstance(error_obj, dict):
+                                error_message = error_obj.get("message") or error_message
+                                error_code = error_obj.get("code")
+                            elif error_obj:
+                                error_message = str(error_obj)
+                    except Exception:
+                        error_message = response.text[:500] or error_message
                     logger.error(f"[OpenAI协议] HTTP {response.status_code}: {response.text[:500]}")
+                    self._set_last_error(
+                        message=error_message,
+                        code=error_code,
+                        status_code=response.status_code,
+                        response_text=response.text[:2000],
+                        url=url,
+                    )
                     return ""
 
                 response_text = response.text
@@ -147,12 +200,15 @@ class LLMClient:
 
         except httpx.TimeoutException:
             logger.error("[OpenAI协议] 请求超时（120s）")
+            self._set_last_error(message="OpenAI protocol request timed out.", code="timeout", url=url)
             return ""
         except httpx.RequestError as e:
             logger.error(f"[OpenAI协议] 网络请求错误: {e}")
+            self._set_last_error(message=str(e), code="request_error", url=url)
             return ""
         except Exception as e:
             logger.error(f"[OpenAI协议] 未预期异常: {e}", exc_info=True)
+            self._set_last_error(message=str(e), code="unexpected_exception", url=url)
             return ""
 
     def _parse_sse_response(self, response_text: str) -> str:
@@ -308,30 +364,41 @@ class LLMClient:
 
                 if response.status_code != 200:
                     logger.error(f"[Anthropic协议] HTTP {response.status_code}: {response.text[:500]}")
+                    self._set_last_error(
+                        message=response.text[:500] or f"HTTP {response.status_code}",
+                        status_code=response.status_code,
+                        response_text=response.text[:2000],
+                        url=url,
+                    )
                     return ""
 
                 data = response.json()
 
                 if "content" not in data or not data["content"]:
                     logger.warning("[Anthropic协议] content 为空")
+                    self._set_last_error(message="Anthropic response content is empty.", code="empty_content", url=url)
                     return ""
 
                 content = data["content"][0].get("text", "")
 
                 if not content or not content.strip():
                     logger.warning("[Anthropic协议] 内容为空字符串")
+                    self._set_last_error(message="Anthropic response text is empty.", code="empty_content", url=url)
                     return ""
 
                 return content
 
         except httpx.TimeoutException:
             logger.error("[Anthropic协议] 请求超时")
+            self._set_last_error(message="Anthropic protocol request timed out.", code="timeout", url=url)
             return ""
         except httpx.RequestError as e:
             logger.error(f"[Anthropic协议] 网络请求错误: {e}")
+            self._set_last_error(message=str(e), code="request_error", url=url)
             return ""
         except Exception as e:
             logger.error(f"[Anthropic协议] 未预期异常: {e}", exc_info=True)
+            self._set_last_error(message=str(e), code="unexpected_exception", url=url)
             return ""
 
     async def _list_models_anthropic(self) -> List[str]:
@@ -409,30 +476,41 @@ class LLMClient:
 
                 if response.status_code != 200:
                     logger.error(f"[Gemini协议] HTTP {response.status_code}: {response.text[:500]}")
+                    self._set_last_error(
+                        message=response.text[:500] or f"HTTP {response.status_code}",
+                        status_code=response.status_code,
+                        response_text=response.text[:2000],
+                        url=url,
+                    )
                     return ""
 
                 data = response.json()
 
                 if "candidates" not in data or not data["candidates"]:
                     logger.warning("[Gemini协议] candidates 为空")
+                    self._set_last_error(message="Gemini response candidates are empty.", code="empty_content", url=url)
                     return ""
 
                 content = data["candidates"][0].get("content", {}).get("parts", [{}])[0].get("text", "")
 
                 if not content or not content.strip():
                     logger.warning("[Gemini协议] 内容为空字符串")
+                    self._set_last_error(message="Gemini response text is empty.", code="empty_content", url=url)
                     return ""
 
                 return content
 
         except httpx.TimeoutException:
             logger.error("[Gemini协议] 请求超时")
+            self._set_last_error(message="Gemini protocol request timed out.", code="timeout", url=url)
             return ""
         except httpx.RequestError as e:
             logger.error(f"[Gemini协议] 网络请求错误: {e}")
+            self._set_last_error(message=str(e), code="request_error", url=url)
             return ""
         except Exception as e:
             logger.error(f"[Gemini协议] 未预期异常: {e}", exc_info=True)
+            self._set_last_error(message=str(e), code="unexpected_exception", url=url)
             return ""
 
     async def _list_models_gemini(self) -> List[str]:

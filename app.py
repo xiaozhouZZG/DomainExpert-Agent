@@ -1,73 +1,130 @@
-"""主应用入口"""
-import sys
-import logging
-from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-import uvicorn
+"""Application entrypoint."""
 
-# 配置日志
+from __future__ import annotations
+
+import logging
+import socket
+import sys
+from contextlib import asynccontextmanager
+
+import uvicorn
+from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+
+from config import settings
+from database.connection import ensure_db_ready
+from platforms.browser_manager import shutdown_goofish_browser_manager
+from platforms.browser_worker import shutdown_browser_worker
+
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
-# 导入配置
-from config import settings
+ensure_db_ready()
 
-# 初始化数据库
-from database.connection import ensure_tables
-ensure_tables()
 
-# 创建 FastAPI 应用
-app = FastAPI(title="EnterpriseAgent", version="1.0.0")
+def _assert_single_instance(host: str, port: int) -> None:
+    probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        probe.bind((host, port))
+    except OSError as exc:
+        raise RuntimeError(f"已有实例在跑: {host}:{port}") from exc
+    finally:
+        probe.close()
 
-# 注册请求日志中间件
+
+def _enforce_single_port() -> None:
+    argv = [arg.lower() for arg in sys.argv]
+    if "--port" in argv:
+        idx = argv.index("--port")
+        configured = argv[idx + 1] if idx + 1 < len(argv) else ""
+        if configured != "8802":
+            raise RuntimeError(f"只允许使用 8802 端口启动，当前收到 --port {configured or '<missing>'}")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        yield
+    finally:
+        shutdown_browser_worker()
+        shutdown_goofish_browser_manager()
+
+
+_enforce_single_port()
+
+app = FastAPI(title="EnterpriseAgent", version="1.0.0", lifespan=lifespan)
+
 from middleware.request_logger import RequestLoggerMiddleware
-app.add_middleware(RequestLoggerMiddleware)
 
-# 挂载静态文件目录
+app.add_middleware(RequestLoggerMiddleware)
 app.mount("/static", StaticFiles(directory="web/static"), name="static")
 
-# 导入路由
-from api.chat import router as chat_router
-from api.knowledge import router as kb_router
 from api.admin import router as admin_router
-from api.sessions import router as sessions_router
+from api.chat import router as chat_router
+from api.dashboard import router as dashboard_router
 from api.greeting import router as greeting_router
+from api.knowledge import router as kb_router
+from api.sessions import router as sessions_router
+from api.xianyu import router as xianyu_router
+from api.xianyu_dump import router as xianyu_dump_router
 
 app.include_router(chat_router)
 app.include_router(kb_router)
 app.include_router(admin_router)
+app.include_router(dashboard_router)
 app.include_router(sessions_router, prefix="/api")
 app.include_router(greeting_router)
+app.include_router(xianyu_router)
+app.include_router(xianyu_dump_router, prefix="/api/xianyu")
 
 
 @app.get("/")
 async def root():
-    """主页"""
+    return FileResponse("web/main.html")
+
+
+@app.get("/chat")
+async def chat_page():
     return FileResponse("web/index.html")
 
 
 @app.get("/kb")
 async def kb_page():
-    """知识库管理页"""
     return FileResponse("web/kb.html")
 
 
 @app.get("/admin")
 async def admin_page():
-    """后台管理页"""
     return FileResponse("web/admin.html")
 
 
-if __name__ == "__main__":
-    logger.info(f"启动服务: {settings.api_host}:{settings.api_port}")
+@app.get("/xianyu-old")
+async def xianyu_old_page():
+    return FileResponse("web/xianyu.html")
 
+
+@app.get("/dashboard-old")
+async def dashboard_old_page():
+    return FileResponse("web/dashboard.html")
+
+
+if __name__ == "__main__":
+    settings.api_port = 8802
+    bind_host = settings.api_host if settings.api_host not in {"0.0.0.0", "::"} else "127.0.0.1"
+    try:
+        _assert_single_instance(bind_host, settings.api_port)
+    except RuntimeError as exc:
+        logger.error(str(exc))
+        sys.exit(1)
+
+    logger.info("启动服务: %s:%s", settings.api_host, settings.api_port)
     uvicorn.run(
         app,
         host=settings.api_host,
         port=settings.api_port,
-        log_level=settings.log_level.lower()
+        log_level=settings.log_level.lower(),
     )

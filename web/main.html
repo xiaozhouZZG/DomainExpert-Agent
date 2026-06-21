@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>闲鱼运营助手</title>
+    <link rel="stylesheet" href="/static/main.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 左侧导航 -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <h1 class="app-title">闲鱼助手</h1>
+            </div>
+            <ul class="nav-menu">
+                <li class="nav-item active" data-module="messages">
+                    <span class="nav-icon">💬</span>
+                    <span class="nav-label">消息</span>
+                </li>
+                <li class="nav-item" data-module="listings">
+                    <span class="nav-icon">📦</span>
+                    <span class="nav-label">我的商品</span>
+                </li>
+                <li class="nav-item" data-module="publish">
+                    <span class="nav-icon">⬆️</span>
+                    <span class="nav-label">上架</span>
+                </li>
+                <li class="nav-item" data-module="research">
+                    <span class="nav-icon">📊</span>
+                    <span class="nav-label">竞品选品</span>
+                </li>
+                <li class="nav-item" data-module="overview">
+                    <span class="nav-icon">📈</span>
+                    <span class="nav-label">数据概览</span>
+                </li>
+                <li class="nav-item" data-module="settings">
+                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-label">设置</span>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- 右侧内容区 -->
+        <main class="content-area">
+            <!-- 消息模块 -->
+            <div id="module-messages" class="module active">
+                <div class="module-header">
+                    <h2>买家消息</h2>
+                    <button class="btn-refresh" onclick="loadConversations()">刷新消息</button>
+                </div>
+                <div class="module-body">
+                    <div id="conversations-container" class="conversations-list">
+                        <div class="loading">点击"刷新消息"加载会话列表</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 我的商品模块 -->
+            <div id="module-listings" class="module">
+                <div class="module-header">
+                    <h2>我的商品</h2>
+                    <button class="btn-refresh" onclick="loadListings()">刷新</button>
+                </div>
+                <div class="module-body">
+                    <div id="listings-container" class="listings-grid">
+                        <div class="loading">加载中...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 上架模块 -->
+            <div id="module-publish" class="module">
+                <div class="module-header">
+                    <h2>智能上架</h2>
+                </div>
+                <div class="module-body">
+                    <div class="publish-container">
+                        <!-- 左栏：输入表单 -->
+                        <div class="publish-form">
+                            <h3 style="font-size: 16px; margin-bottom: 20px; color: var(--text-primary);">输入商品信息</h3>
+                            <div class="form-group">
+                                <label>商品关键词</label>
+                                <input type="text" id="publish-keyword" placeholder="例: 机械键盘">
+                            </div>
+                            <div class="form-group">
+                                <label>商品描述</label>
+                                <textarea id="publish-desc" placeholder="商品详细信息，如品牌、型号、成色、配件等..."></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>成本价（元）</label>
+                                <input type="number" id="publish-cost" placeholder="0.00" step="0.01">
+                            </div>
+                            <div class="form-group">
+                                <label>目标利润率（%）</label>
+                                <input type="number" id="publish-margin" placeholder="20" step="1">
+                            </div>
+                            <button class="btn-primary" onclick="generateListingPlan()" style="width: 100%;">生成上架方案</button>
+                        </div>
+
+                        <!-- 右栏：结果展示 -->
+                        <div class="publish-result" id="listing-plan-result">
+                            <div class="publish-result-empty">
+                                <div class="publish-result-empty-icon">📝</div>
+                                <div class="publish-result-empty-text">填写左侧商品信息后<br>点击生成按钮查看AI推荐方案</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 竞品选品模块 -->
+            <div id="module-research" class="module">
+                <div class="module-header">
+                    <h2>竞品与选品分析</h2>
+                </div>
+                <div class="module-body">
+                    <div class="research-tabs">
+                        <button class="tab-btn active" data-tab="competitors">竞品比价</button>
+                        <button class="tab-btn" data-tab="marketing">引流方案</button>
+                        <button class="tab-btn" data-tab="profit">利润分析</button>
+                    </div>
+
+                    <!-- 竞品比价 -->
+                    <div id="tab-competitors" class="tab-content active">
+                        <div class="search-bar">
+                            <input type="text" id="competitor-keyword" placeholder="搜索关键词，如: iPhone 12">
+                            <button class="btn-primary" onclick="searchCompetitors()">搜索</button>
+                        </div>
+                        <div id="competitors-result" class="result-area"></div>
+                    </div>
+
+                    <!-- 引流方案 -->
+                    <div id="tab-marketing" class="tab-content">
+                        <div class="form-group">
+                            <label>产品关键词</label>
+                            <input type="text" id="marketing-keyword" placeholder="例: 手机壳">
+                        </div>
+                        <button class="btn-primary" onclick="generateMarketingPlan()">生成引流方案</button>
+                        <div id="marketing-result" class="result-area"></div>
+                    </div>
+
+                    <!-- 利润分析 -->
+                    <div id="tab-profit" class="tab-content">
+                        <div class="form-group">
+                            <label>分析关键词</label>
+                            <input type="text" id="profit-keyword" placeholder="例: iPad">
+                        </div>
+                        <button class="btn-primary" onclick="analyzeProfitability()">分析</button>
+                        <div id="profit-result" class="result-area"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 数据概览模块 -->
+            <div id="module-overview" class="module">
+                <div class="module-header">
+                    <h2>数据概览</h2>
+                    <button class="btn-refresh" onclick="loadOverview()">刷新</button>
+                </div>
+                <div class="module-body">
+                    <div id="overview-container" class="overview-grid">
+                        <div class="loading">加载中...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 设置模块 -->
+            <div id="module-settings" class="module">
+                <div class="module-header">
+                    <h2>系统设置</h2>
+                </div>
+                <div class="module-body">
+                    <div class="settings-container">
+                        <div class="settings-section">
+                            <h3>闲鱼连接</h3>
+                            <div class="status-card">
+                                <div class="status-row">
+                                    <span>登录状态</span>
+                                    <span id="login-status" class="status-badge">检查中...</span>
+                                </div>
+                                <button class="btn-primary" onclick="startLogin()">扫码登录</button>
+                            </div>
+                        </div>
+
+                        <div class="settings-section">
+                            <h3>LLM 配置</h3>
+                            <div class="form-group">
+                                <label>API Base URL</label>
+                                <input type="text" id="llm-base-url" placeholder="例如: https://api.openai.com/v1">
+                            </div>
+                            <div class="form-group">
+                                <label>API Key</label>
+                                <input type="password" id="llm-api-key" placeholder="输入API密钥">
+                            </div>
+                            <div class="form-group">
+                                <label>模型</label>
+                                <input type="text" id="llm-model" placeholder="例如: gpt-4o-mini 或 glm-5.2">
+                            </div>
+                            <button class="btn-primary" onclick="saveLLMConfig()">保存配置</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/main.js"></script>
+</body>
+</html>

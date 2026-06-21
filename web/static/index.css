@@ -40,6 +40,27 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
     color: #4f46e5;
 }
 
+.top-link {
+    margin-left: auto;
+    color: #374151;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 8px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 7px;
+    background: #ffffff;
+}
+
+.top-link + .top-link {
+    margin-left: 0;
+}
+
+.top-link:hover {
+    border-color: #4f46e5;
+    color: #4f46e5;
+}
+
 /* 容器 - 居中单栏 */
 .container {
     display: flex;

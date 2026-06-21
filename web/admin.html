@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -8,17 +8,8 @@
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com?v=4"></script>
 
-    <!-- Chart.js CDN - 使用国内镜像 -->
-    <script src="https://cdn.bootcdn.net/ajax/libs/Chart.js/4.4.0/chart.umd.min.js?v=4"></script>
-    <script>
-        // Chart.js 备用加载（动态插入，避免 document.write）
-        if (typeof Chart === 'undefined') {
-            const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
-            script.async = false;
-            document.head.appendChild(script);
-        }
-    </script>
+    <!-- Chart.js 本地静态资源，避免浏览器第三方跟踪拦截 -->
+    <script src="/static/vendor/chart.umd.min.js?v=1"></script>
 
     <!-- Lucide Icons - 内联方案 -->
     <script>
@@ -142,7 +133,7 @@
             </div>
 
             <div class="mt-6 text-center text-sm text-slate-500">
-                默认令牌: <code class="bg-slate-100 px-2 py-1 rounded">demo-token</code>
+                管理令牌来自 <code class="bg-slate-100 px-2 py-1 rounded">.env</code> 中的 <code class="bg-slate-100 px-2 py-1 rounded">DEFAULT_TOKEN</code>
             </div>
         </div>
     </div>
@@ -1217,7 +1208,7 @@
                         </div>
                         ${!data.llm.has_api_key ? `
                         <div class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                            <p class="text-xs text-red-900"><strong>警告：</strong>未配置 API Key，当前使用离线 Mock 模式</p>
+                            <p class="text-xs text-red-900"><strong>警告：</strong>未配置 API Key，真实 LLM 草稿功能不可用</p>
                             <p class="text-xs text-red-800 mt-1">❌ 无法使用真实 LLM 生成回复</p>
                             <p class="text-xs text-red-900 mt-2"><strong>配置方法：</strong>前往「模型设置」页面配置 API Key</p>
                         </div>

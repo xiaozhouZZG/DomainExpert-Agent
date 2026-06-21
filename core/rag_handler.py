@@ -5,7 +5,7 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 
 from database.connection import get_db_connection
-from knowledge.rag_engine import get_rag_engine
+from knowledge.hybrid_rag_engine import get_hybrid_engine
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +14,7 @@ class RAGHandler:
     """RAG 检索处理器"""
 
     def __init__(self):
-        self.rag_engine = get_rag_engine()
+        self.rag_engine = get_hybrid_engine()
 
     def get_threshold(self) -> float:
         """从数据库读取 RAG 阈值"""

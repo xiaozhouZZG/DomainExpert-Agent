@@ -17,7 +17,7 @@ class AgentState(TypedDict):
 
     # 任务信息
     task_plan: str  # 任务分解计划
-    completed_steps: List[str]  # 已完成步骤
+    completed_steps: Annotated[List[str], operator.add]  # 已完成步骤
 
     # 工具调用
     tool_calls: List[Dict[str, Any]]  # 工具调用记录

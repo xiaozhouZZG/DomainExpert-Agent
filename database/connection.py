@@ -1,54 +1,37 @@
-"""数据库连接管理模块"""
-import sqlite3
-import os
+"""SQLite connection and bootstrap helpers."""
+
+from __future__ import annotations
+
 import logging
-from typing import Optional
+import os
+import sqlite3
 
 logger = logging.getLogger(__name__)
 
-# 数据库路径
 DB_PATH = os.getenv("DB_PATH", "data/platform.db")
 
 
 def get_db_connection() -> sqlite3.Connection:
-    """
-    获取数据库连接
+    """Return a configured SQLite connection."""
+    db_dir = os.path.dirname(DB_PATH)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
 
-    配置:
-    - WAL 模式（高并发读）
-    - 外键约束开启
-    - 超时 30秒
-
-    返回:
-        sqlite3.Connection
-    """
     conn = sqlite3.connect(DB_PATH, timeout=30)
-
-    # 启用 WAL 模式（读多写少场景优化）
     conn.execute("PRAGMA journal_mode=WAL")
-
-    # 启用外键约束
     conn.execute("PRAGMA foreign_keys=ON")
-
     return conn
 
 
-def ensure_tables():
-    """
-    确保所有表存在（兜底检查）
-
-    注意:
-    - 正式初始化应使用 database/models.py 的 init_database()
-    - 这里提供最小 schema，防止模块单独使用时崩溃
-    - 字段必须和 models.py 完全一致
-    """
+def ensure_tables() -> None:
+    """Create all required tables and apply compatible migrations."""
     conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # 文档表
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS documents (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 doc_id TEXT UNIQUE NOT NULL,
@@ -57,10 +40,11 @@ def ensure_tables():
                 created_at TEXT NOT NULL,
                 metadata TEXT
             )
-        """)
+            """
+        )
 
-        # 分块表
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS chunks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 chunk_id TEXT UNIQUE NOT NULL,
@@ -70,10 +54,11 @@ def ensure_tables():
                 embedding BLOB,
                 FOREIGN KEY (doc_id) REFERENCES documents(doc_id)
             )
-        """)
+            """
+        )
 
-        # 客户表
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS customers (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 customer_id TEXT UNIQUE NOT NULL,
@@ -82,10 +67,11 @@ def ensure_tables():
                 email TEXT,
                 created_at TEXT
             )
-        """)
+            """
+        )
 
-        # 订单表
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS orders (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 order_id TEXT UNIQUE NOT NULL,
@@ -96,10 +82,11 @@ def ensure_tables():
                 created_at TEXT,
                 FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
             )
-        """)
+            """
+        )
 
-        # 销售表
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS sales (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 sale_id TEXT UNIQUE NOT NULL,
@@ -109,24 +96,46 @@ def ensure_tables():
                 sale_date TEXT,
                 created_at TEXT
             )
-        """)
+            """
+        )
 
-        # 审批表
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS approvals (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 approval_id TEXT UNIQUE NOT NULL,
                 workflow_type TEXT NOT NULL,
+                customer_id TEXT,
+                order_id TEXT,
+                session_id TEXT,
+                trace_id TEXT,
                 title TEXT,
                 content TEXT,
                 amount REAL,
                 status TEXT,
                 created_at TEXT
             )
-        """)
+            """
+        )
 
-        # 知识图谱三元组表
-        cursor.execute("""
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS products (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sku TEXT UNIQUE NOT NULL,
+                name TEXT NOT NULL,
+                category TEXT,
+                price REAL,
+                stock INTEGER DEFAULT 0,
+                status TEXT DEFAULT 'active',
+                description TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS kg_triples (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 subject TEXT NOT NULL,
@@ -136,10 +145,11 @@ def ensure_tables():
                 source TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+            """
+        )
 
-        # 对话会话表
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS conversation_sessions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 session_id TEXT UNIQUE NOT NULL,
@@ -151,39 +161,26 @@ def ensure_tables():
                 created_at TEXT,
                 updated_at TEXT
             )
-        """)
+            """
+        )
 
-        # 兼容旧表：检查并添加缺失的字段
-        cursor.execute("PRAGMA table_info(conversation_sessions)")
-        columns = [col[1] for col in cursor.fetchall()]
-
-        if 'user_id' not in columns:
-            cursor.execute("ALTER TABLE conversation_sessions ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default_user'")
-            logger.info("✓ 补全字段: conversation_sessions.user_id")
-
-        if 'customer_id' not in columns:
-            cursor.execute("ALTER TABLE conversation_sessions ADD COLUMN customer_id TEXT")
-            logger.info("✓ 补全字段: conversation_sessions.customer_id")
-
-        if 'title' not in columns:
-            cursor.execute("ALTER TABLE conversation_sessions ADD COLUMN title TEXT")
-            logger.info("✓ 补全字段: conversation_sessions.title")
-
-        # 对话记录表（新增）
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS conversations (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 session_id TEXT NOT NULL,
                 trace_id TEXT,
                 role TEXT NOT NULL,
                 content TEXT NOT NULL,
+                agent TEXT,
                 engine TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+            """
+        )
 
-        # Agent 执行记录表（新增）
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS agent_executions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 trace_id TEXT,
@@ -193,10 +190,11 @@ def ensure_tables():
                 error TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+            """
+        )
 
-        # 知识库表（新增，兼容 RAG 模块）
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS knowledge_base (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 content TEXT NOT NULL,
@@ -204,20 +202,22 @@ def ensure_tables():
                 metadata TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+            """
+        )
 
-        # 系统配置表（新增，存储 LLM 配置等）
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS system_config (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 key TEXT UNIQUE NOT NULL,
                 value TEXT,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+            """
+        )
 
-        # 请求日志表（新增，记录每次请求统计 + 详细执行轨迹）
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS request_logs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 session_id TEXT NOT NULL,
@@ -230,186 +230,356 @@ def ensure_tables():
                 trace_data TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+            """
+        )
 
-        # 转人工工单表（新增，记录未命中转人工的工单）
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS handoff_tickets (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 session_id TEXT NOT NULL,
-                user_question TEXT NOT NULL,
+                user_id TEXT DEFAULT 'default_user',
+                customer_id TEXT,
+                order_id TEXT,
+                question TEXT,
+                user_question TEXT,
                 agent_response TEXT,
-                status TEXT DEFAULT '待处理',
+                notes TEXT,
+                status TEXT DEFAULT 'pending',
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS xianyu_conversations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                conversation_id TEXT UNIQUE NOT NULL,
+                buyer_name TEXT,
+                platform TEXT DEFAULT 'goofish',
+                status TEXT DEFAULT 'open',
+                last_intent TEXT,
+                last_message_at TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS xianyu_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                message_id TEXT UNIQUE NOT NULL,
+                conversation_id TEXT NOT NULL,
+                direction TEXT NOT NULL,
+                content TEXT NOT NULL,
+                intent TEXT,
+                draft_reply TEXT,
+                approval_id TEXT,
+                sent_status TEXT DEFAULT 'pending',
+                raw_json TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (conversation_id) REFERENCES xianyu_conversations(conversation_id)
+            )
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS execution_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_id TEXT UNIQUE NOT NULL,
+                event_time TEXT NOT NULL,
+                component TEXT NOT NULL,
+                action_name TEXT NOT NULL,
+                status TEXT NOT NULL,
+                duration_ms REAL,
+                session_id TEXT,
+                trace_id TEXT,
+                conversation_id TEXT,
+                message_id TEXT,
+                approval_id TEXT,
+                screenshot_path TEXT,
+                data_source TEXT,
+                detail TEXT,
+                error TEXT,
+                metadata_json TEXT
+            )
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS competitor_observations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                keyword TEXT NOT NULL,
+                title TEXT,
+                price REAL,
+                sold_count TEXT,
+                platform TEXT NOT NULL,
+                source_label TEXT NOT NULL,
+                raw_json TEXT,
+                observed_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS xianyu_listing_snapshots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                item_id TEXT NOT NULL,
+                title TEXT,
+                status TEXT NOT NULL,
+                price REAL,
+                item_url TEXT,
+                view_count TEXT,
+                want_count TEXT,
+                published_at TEXT,
+                source_label TEXT NOT NULL,
+                raw_json TEXT,
+                last_seen_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS xianyu_generated_artifacts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                artifact_id TEXT UNIQUE NOT NULL,
+                artifact_type TEXT NOT NULL,
+                keyword TEXT,
+                conversation_id TEXT,
+                source_label TEXT NOT NULL,
+                summary_text TEXT,
+                payload_json TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
 
         conn.commit()
-
-        # 数据库迁移：检查并添加缺失的字段
         _migrate_database(cursor)
-
+        _migrate_dashboard_tables(cursor)
         conn.commit()
-        logger.info("数据库表检查完成")
-
-    except Exception as e:
-        logger.error(f"数据库表初始化失败: {str(e)}")
+        logger.info("database schema ready: %s", DB_PATH)
+    except Exception:
+        logger.exception("database initialization failed")
         raise
     finally:
         if conn:
             conn.close()
 
 
-def _migrate_database(cursor):
-    """
-    数据库平滑迁移：检查所有表并添加缺失的字段
+def ensure_db_ready() -> dict[str, object]:
+    """Create schema and seed required baseline data."""
+    ensure_tables()
 
-    覆盖所有新增过的列，确保旧库平滑升级
-    """
+    from seed import has_required_seed_data, seed_all
+
+    seeded = False
+    seed_stats: dict[str, int] = {}
+    if not has_required_seed_data():
+        seed_stats = seed_all()
+        seeded = True
+
+    return {
+        "db_path": DB_PATH,
+        "seeded": seeded,
+        "seed_stats": seed_stats,
+    }
+
+
+def _migrate_database(cursor: sqlite3.Cursor) -> None:
+    """Backfill missing columns for existing databases."""
     try:
-        # ============ chunks 表（新增元数据字段用于过滤）============
-        cursor.execute("PRAGMA table_info(chunks)")
-        columns = [row[1] for row in cursor.fetchall()]
+        _ensure_columns(
+            cursor,
+            "chunks",
+            {
+                "category": "ALTER TABLE chunks ADD COLUMN category TEXT",
+                "source": "ALTER TABLE chunks ADD COLUMN source TEXT",
+                "created_at": "ALTER TABLE chunks ADD COLUMN created_at TEXT",
+                "business_line": "ALTER TABLE chunks ADD COLUMN business_line TEXT",
+                "priority": "ALTER TABLE chunks ADD COLUMN priority INTEGER DEFAULT 0",
+            },
+        )
+        cursor.execute("UPDATE chunks SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL")
 
-        if 'category' not in columns:
-            logger.info("迁移: chunks 添加 category（文档分类）")
-            cursor.execute("ALTER TABLE chunks ADD COLUMN category TEXT")
+        _ensure_columns(
+            cursor,
+            "conversation_sessions",
+            {
+                "user_id": "ALTER TABLE conversation_sessions ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default_user'",
+                "customer_id": "ALTER TABLE conversation_sessions ADD COLUMN customer_id TEXT",
+                "title": "ALTER TABLE conversation_sessions ADD COLUMN title TEXT",
+            },
+        )
 
-        if 'source' not in columns:
-            logger.info("迁移: chunks 添加 source（来源）")
-            cursor.execute("ALTER TABLE chunks ADD COLUMN source TEXT")
+        _ensure_columns(
+            cursor,
+            "approvals",
+            {
+                "customer_id": "ALTER TABLE approvals ADD COLUMN customer_id TEXT",
+                "order_id": "ALTER TABLE approvals ADD COLUMN order_id TEXT",
+                "session_id": "ALTER TABLE approvals ADD COLUMN session_id TEXT",
+                "trace_id": "ALTER TABLE approvals ADD COLUMN trace_id TEXT",
+            },
+        )
 
-        if 'created_at' not in columns:
-            logger.info("迁移: chunks 添加 created_at（创建时间）")
-            cursor.execute("ALTER TABLE chunks ADD COLUMN created_at TEXT DEFAULT CURRENT_TIMESTAMP")
+        _ensure_columns(
+            cursor,
+            "conversations",
+            {
+                "trace_id": "ALTER TABLE conversations ADD COLUMN trace_id TEXT",
+                "agent": "ALTER TABLE conversations ADD COLUMN agent TEXT",
+                "engine": "ALTER TABLE conversations ADD COLUMN engine TEXT",
+            },
+        )
 
-        if 'business_line' not in columns:
-            logger.info("迁移: chunks 添加 business_line（业务线）")
-            cursor.execute("ALTER TABLE chunks ADD COLUMN business_line TEXT")
+        if _table_exists(cursor, "messages"):
+            _ensure_columns(
+                cursor,
+                "messages",
+                {
+                    "agent": "ALTER TABLE messages ADD COLUMN agent TEXT",
+                    "trace_id": "ALTER TABLE messages ADD COLUMN trace_id TEXT",
+                    "engine": "ALTER TABLE messages ADD COLUMN engine TEXT",
+                    "kb_hit": "ALTER TABLE messages ADD COLUMN kb_hit INTEGER DEFAULT 0",
+                    "prompt_tokens": "ALTER TABLE messages ADD COLUMN prompt_tokens INTEGER",
+                    "completion_tokens": "ALTER TABLE messages ADD COLUMN completion_tokens INTEGER",
+                    "total_tokens": "ALTER TABLE messages ADD COLUMN total_tokens INTEGER",
+                    "cost": "ALTER TABLE messages ADD COLUMN cost REAL",
+                    "estimated": "ALTER TABLE messages ADD COLUMN estimated INTEGER DEFAULT 1",
+                    "latency_ms": "ALTER TABLE messages ADD COLUMN latency_ms REAL",
+                    "created_at": "ALTER TABLE messages ADD COLUMN created_at TEXT",
+                },
+            )
+            cursor.execute("UPDATE messages SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL")
 
-        if 'priority' not in columns:
-            logger.info("迁移: chunks 添加 priority（优先级）")
-            cursor.execute("ALTER TABLE chunks ADD COLUMN priority INTEGER DEFAULT 0")
+        _ensure_columns(
+            cursor,
+            "request_logs",
+            {
+                "trace_id": "ALTER TABLE request_logs ADD COLUMN trace_id TEXT",
+                "trace_data": "ALTER TABLE request_logs ADD COLUMN trace_data TEXT",
+                "agent": "ALTER TABLE request_logs ADD COLUMN agent TEXT",
+                "kb_hit": "ALTER TABLE request_logs ADD COLUMN kb_hit INTEGER DEFAULT 0",
+                "countable": "ALTER TABLE request_logs ADD COLUMN countable INTEGER DEFAULT 1",
+            },
+        )
 
-        # ============ conversation_sessions 表 ============
-        cursor.execute("PRAGMA table_info(conversation_sessions)")
-        columns = [row[1] for row in cursor.fetchall()]
+        _ensure_columns(
+            cursor,
+            "handoff_tickets",
+            {
+                "user_id": "ALTER TABLE handoff_tickets ADD COLUMN user_id TEXT DEFAULT 'default_user'",
+                "question": "ALTER TABLE handoff_tickets ADD COLUMN question TEXT",
+                "user_question": "ALTER TABLE handoff_tickets ADD COLUMN user_question TEXT",
+                "notes": "ALTER TABLE handoff_tickets ADD COLUMN notes TEXT",
+                "customer_id": "ALTER TABLE handoff_tickets ADD COLUMN customer_id TEXT",
+                "order_id": "ALTER TABLE handoff_tickets ADD COLUMN order_id TEXT",
+            },
+        )
+    except Exception:
+        logger.exception("database migration failed")
+        raise
 
-        if 'user_id' not in columns:
-            logger.info("迁移: conversation_sessions 添加 user_id")
-            cursor.execute("ALTER TABLE conversation_sessions ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default_user'")
 
-        if 'title' not in columns:
-            logger.info("迁移: conversation_sessions 添加 title")
-            cursor.execute("ALTER TABLE conversation_sessions ADD COLUMN title TEXT")
+def _migrate_dashboard_tables(cursor: sqlite3.Cursor) -> None:
+    """Ensure dashboard operational tables keep up with schema changes."""
+    try:
+        _ensure_columns(
+            cursor,
+            "execution_logs",
+            {
+                "approval_id": "ALTER TABLE execution_logs ADD COLUMN approval_id TEXT",
+                "screenshot_path": "ALTER TABLE execution_logs ADD COLUMN screenshot_path TEXT",
+                "data_source": "ALTER TABLE execution_logs ADD COLUMN data_source TEXT",
+                "detail": "ALTER TABLE execution_logs ADD COLUMN detail TEXT",
+                "error": "ALTER TABLE execution_logs ADD COLUMN error TEXT",
+                "metadata_json": "ALTER TABLE execution_logs ADD COLUMN metadata_json TEXT",
+            },
+        )
 
-        # ============ conversations 表 ============
-        cursor.execute("PRAGMA table_info(conversations)")
-        columns = [row[1] for row in cursor.fetchall()]
+        _ensure_columns(
+            cursor,
+            "competitor_observations",
+            {
+                "source_label": "ALTER TABLE competitor_observations ADD COLUMN source_label TEXT",
+                "raw_json": "ALTER TABLE competitor_observations ADD COLUMN raw_json TEXT",
+                "observed_at": "ALTER TABLE competitor_observations ADD COLUMN observed_at TEXT",
+            },
+        )
+        cursor.execute(
+            "UPDATE competitor_observations SET source_label = platform WHERE source_label IS NULL"
+        )
+        cursor.execute(
+            "UPDATE competitor_observations SET observed_at = CURRENT_TIMESTAMP WHERE observed_at IS NULL"
+        )
 
-        if 'trace_id' not in columns:
-            logger.info("迁移: conversations 添加 trace_id")
-            cursor.execute("ALTER TABLE conversations ADD COLUMN trace_id TEXT")
+        _ensure_columns(
+            cursor,
+            "xianyu_listing_snapshots",
+            {
+                "source_label": "ALTER TABLE xianyu_listing_snapshots ADD COLUMN source_label TEXT",
+                "raw_json": "ALTER TABLE xianyu_listing_snapshots ADD COLUMN raw_json TEXT",
+                "last_seen_at": "ALTER TABLE xianyu_listing_snapshots ADD COLUMN last_seen_at TEXT",
+                "item_url": "ALTER TABLE xianyu_listing_snapshots ADD COLUMN item_url TEXT",
+                "view_count": "ALTER TABLE xianyu_listing_snapshots ADD COLUMN view_count TEXT",
+                "want_count": "ALTER TABLE xianyu_listing_snapshots ADD COLUMN want_count TEXT",
+                "published_at": "ALTER TABLE xianyu_listing_snapshots ADD COLUMN published_at TEXT",
+            },
+        )
+        cursor.execute(
+            "UPDATE xianyu_listing_snapshots SET last_seen_at = CURRENT_TIMESTAMP WHERE last_seen_at IS NULL"
+        )
 
-        if 'agent' not in columns:
-            logger.info("迁移: conversations 添加 agent")
-            cursor.execute("ALTER TABLE conversations ADD COLUMN agent TEXT")
+        _ensure_columns(
+            cursor,
+            "xianyu_generated_artifacts",
+            {
+                "keyword": "ALTER TABLE xianyu_generated_artifacts ADD COLUMN keyword TEXT",
+                "conversation_id": "ALTER TABLE xianyu_generated_artifacts ADD COLUMN conversation_id TEXT",
+                "source_label": "ALTER TABLE xianyu_generated_artifacts ADD COLUMN source_label TEXT",
+                "summary_text": "ALTER TABLE xianyu_generated_artifacts ADD COLUMN summary_text TEXT",
+                "payload_json": "ALTER TABLE xianyu_generated_artifacts ADD COLUMN payload_json TEXT",
+                "created_at": "ALTER TABLE xianyu_generated_artifacts ADD COLUMN created_at TEXT",
+            },
+        )
+        cursor.execute(
+            "UPDATE xianyu_generated_artifacts SET source_label = 'real' WHERE source_label IS NULL"
+        )
+        cursor.execute(
+            "UPDATE xianyu_generated_artifacts SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL"
+        )
+    except Exception:
+        logger.exception("dashboard tables migration failed")
+        raise
 
-        if 'engine' not in columns:
-            logger.info("迁移: conversations 添加 engine")
-            cursor.execute("ALTER TABLE conversations ADD COLUMN engine TEXT")
 
-        # ============ messages 表（如果存在）============
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='messages'")
-        if cursor.fetchone():
-            cursor.execute("PRAGMA table_info(messages)")
-            columns = [row[1] for row in cursor.fetchall()]
+def _table_exists(cursor: sqlite3.Cursor, table_name: str) -> bool:
+    row = cursor.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name = ?",
+        (table_name,),
+    ).fetchone()
+    return bool(row)
 
-            if 'agent' not in columns:
-                logger.info("迁移: messages 添加 agent")
-                cursor.execute("ALTER TABLE messages ADD COLUMN agent TEXT")
 
-            if 'trace_id' not in columns:
-                logger.info("迁移: messages 添加 trace_id")
-                cursor.execute("ALTER TABLE messages ADD COLUMN trace_id TEXT")
+def _ensure_columns(
+    cursor: sqlite3.Cursor,
+    table_name: str,
+    statements: dict[str, str],
+) -> None:
+    if not _table_exists(cursor, table_name):
+        return
 
-            if 'engine' not in columns:
-                logger.info("迁移: messages 添加 engine")
-                cursor.execute("ALTER TABLE messages ADD COLUMN engine TEXT")
-
-            if 'kb_hit' not in columns:
-                logger.info("迁移: messages 添加 kb_hit")
-                cursor.execute("ALTER TABLE messages ADD COLUMN kb_hit INTEGER DEFAULT 0")
-
-            if 'prompt_tokens' not in columns:
-                logger.info("迁移: messages 添加 prompt_tokens")
-                cursor.execute("ALTER TABLE messages ADD COLUMN prompt_tokens INTEGER")
-
-            if 'completion_tokens' not in columns:
-                logger.info("迁移: messages 添加 completion_tokens")
-                cursor.execute("ALTER TABLE messages ADD COLUMN completion_tokens INTEGER")
-
-            if 'total_tokens' not in columns:
-                logger.info("迁移: messages 添加 total_tokens")
-                cursor.execute("ALTER TABLE messages ADD COLUMN total_tokens INTEGER")
-
-            if 'cost' not in columns:
-                logger.info("迁移: messages 添加 cost")
-                cursor.execute("ALTER TABLE messages ADD COLUMN cost REAL")
-
-            if 'estimated' not in columns:
-                logger.info("迁移: messages 添加 estimated")
-                cursor.execute("ALTER TABLE messages ADD COLUMN estimated INTEGER DEFAULT 1")
-
-            if 'latency_ms' not in columns:
-                logger.info("迁移: messages 添加 latency_ms")
-                cursor.execute("ALTER TABLE messages ADD COLUMN latency_ms REAL")
-
-            if 'created_at' not in columns:
-                logger.info("迁移: messages 添加 created_at")
-                cursor.execute("ALTER TABLE messages ADD COLUMN created_at TEXT DEFAULT CURRENT_TIMESTAMP")
-
-        # ============ request_logs 表 ============
-        cursor.execute("PRAGMA table_info(request_logs)")
-        columns = [row[1] for row in cursor.fetchall()]
-
-        if 'trace_id' not in columns:
-            logger.info("迁移: request_logs 添加 trace_id")
-            cursor.execute("ALTER TABLE request_logs ADD COLUMN trace_id TEXT")
-
-        if 'trace_data' not in columns:
-            logger.info("迁移: request_logs 添加 trace_data")
-            cursor.execute("ALTER TABLE request_logs ADD COLUMN trace_data TEXT")
-
-        if 'agent' not in columns:
-            logger.info("迁移: request_logs 添加 agent")
-            cursor.execute("ALTER TABLE request_logs ADD COLUMN agent TEXT")
-
-        if 'kb_hit' not in columns:
-            logger.info("迁移: request_logs 添加 kb_hit")
-            cursor.execute("ALTER TABLE request_logs ADD COLUMN kb_hit INTEGER DEFAULT 0")
-
-        if 'countable' not in columns:
-            logger.info("迁移: request_logs 添加 countable")
-            cursor.execute("ALTER TABLE request_logs ADD COLUMN countable INTEGER DEFAULT 1")
-
-        # ============ handoff_tickets 表 ============
-        cursor.execute("PRAGMA table_info(handoff_tickets)")
-        columns = [row[1] for row in cursor.fetchall()]
-
-        if 'user_id' not in columns:
-            logger.info("迁移: handoff_tickets 添加 user_id")
-            cursor.execute("ALTER TABLE handoff_tickets ADD COLUMN user_id TEXT DEFAULT 'default_user'")
-
-        if 'question' not in columns:
-            logger.info("迁移: handoff_tickets 添加 question")
-            cursor.execute("ALTER TABLE handoff_tickets ADD COLUMN question TEXT")
-
-        if 'user_question' not in columns:
-            logger.info("迁移: handoff_tickets 添加 user_question")
-            cursor.execute("ALTER TABLE handoff_tickets ADD COLUMN user_question TEXT")
-
-        logger.info("数据库迁移完成")
-
-    except Exception as e:
-        logger.warning(f"数据库迁移失败（可能表不存在）: {str(e)}")
+    cursor.execute(f"PRAGMA table_info({table_name})")
+    existing = {row[1] for row in cursor.fetchall()}
+    for column_name, statement in statements.items():
+        if column_name not in existing:
+            logger.info("migrating table %s: add column %s", table_name, column_name)
+            cursor.execute(statement)

@@ -1,36 +1,37 @@
-"""中间件（鉴权/限流/日志）"""
-from fastapi import Request, HTTPException
-from starlette.middleware.base import BaseHTTPMiddleware
+"""Middleware helpers."""
+
+from __future__ import annotations
+
 import time
+
+from fastapi import HTTPException, Request
+from starlette.middleware.base import BaseHTTPMiddleware
+from config import settings
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
-    """简单 Token 鉴权"""
+    """Simple token auth middleware."""
 
     async def dispatch(self, request: Request, call_next):
-        # 健康检查接口跳过鉴权
         if request.url.path in ["/", "/api/health"]:
             return await call_next(request)
 
         token = request.headers.get("Authorization", "").replace("Bearer ", "")
-
-        # 简单校验（生产环境应使用 JWT）
-        if not token or token != "demo-token":
+        expected_token = settings.default_token
+        if not expected_token:
+            raise HTTPException(status_code=503, detail="DEFAULT_TOKEN 未配置")
+        if not token or token != expected_token:
             raise HTTPException(status_code=401, detail="未授权")
 
-        response = await call_next(request)
-        return response
+        return await call_next(request)
 
 
 class LoggingMiddleware(BaseHTTPMiddleware):
-    """请求日志"""
+    """Request logging middleware."""
 
     async def dispatch(self, request: Request, call_next):
         start_time = time.time()
-
         response = await call_next(request)
-
         duration = time.time() - start_time
         print(f"{request.method} {request.url.path} - {response.status_code} ({duration:.3f}s)")
-
         return response

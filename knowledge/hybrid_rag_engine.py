@@ -34,12 +34,19 @@ def get_hybrid_engine() -> "HybridRAGEngine":
     return _hybrid_engine_instance
 
 
+def reset_hybrid_engine() -> None:
+    """Reset the singleton so the next access rebuilds the index from DB."""
+    global _hybrid_engine_instance
+    _hybrid_engine_instance = None
+
+
 class HybridRAGEngine:
     """混合检索 RAG 引擎"""
 
     def __init__(self):
         # 加载配置
         self._load_config()
+        self.mode = "vector"
 
         # 组件（延迟初始化）
         self.embedder = None

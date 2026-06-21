@@ -1636,6 +1636,19 @@ async def generate_xianyu_listing_plan(
 async def create_reply_draft(
     req: DraftReplyRequest,
 ):
+    # 机器人闭嘴：检查会话状态
+    from core.conversation_status import should_bot_reply, get_conversation_status
+
+    if not should_bot_reply(req.conversation_id):
+        current_status = get_conversation_status(req.conversation_id)
+        return {
+            "status": "bot_muted",
+            "conversation_id": req.conversation_id,
+            "conversation_status": current_status,
+            "draft": "",
+            "detail": f"会话状态为 '{current_status}'，机器人不应回复。请人工处理。"
+        }
+
     config = ConfigManager.get_llm_config()
     if not config.get("base_url") or not config.get("api_key") or not config.get("model"):
         raise HTTPException(status_code=503, detail="LLM not configured; reply draft generation is unavailable.")
@@ -1654,17 +1667,53 @@ async def create_reply_draft(
         raise HTTPException(status_code=502, detail=f"Reply RAG preparation failed: {exc}") from exc
 
     if not rag["hit"]:
+        # 检索护栏触发：标记转人工
+        from core.conversation_status import mark_conversation_pending_handoff
+
+        confidence_status = rag.get("confidence_status", "not_found")
+        top_score = rag.get("top_score", 0.0)
+
+        # 生成 holding 建议话术
+        if confidence_status == "gray":
+            suggested_reply = "您好，这个问题我需要再确认一下，稍后回复您"
+        else:
+            suggested_reply = "您好，这个问题我帮您确认一下，稍后回复您"
+
+        # 标记会话为待人工处理
+        try:
+            handoff_result = mark_conversation_pending_handoff(
+                conversation_id=req.conversation_id,
+                reason=confidence_status,
+                buyer_message=req.buyer_message,
+                confidence_score=top_score,
+                suggested_reply=suggested_reply
+            )
+            logger.info(
+                "Conversation marked for handoff: conversation_id=%s, reason=%s, score=%.4f",
+                req.conversation_id, confidence_status, top_score
+            )
+        except Exception as exc:
+            logger.exception("Failed to mark conversation for handoff: %s", exc)
+            # 即使标记失败，也继续返回结果
+
         return {
             "status": "no_knowledge",
             "conversation_id": req.conversation_id,
             "draft": "",
             "mode": "rag_llm",
             "detail": "无相关知识，未生成回复。",
+            "handoff": {
+                "status": "pending_handoff",
+                "reason": confidence_status,
+                "suggested_reply": suggested_reply,
+                "note": "⚠️ 请手动复制以上话术发送给买家"
+            },
             "knowledge_seed": seed_info,
             "rag": {
                 "hit": False,
                 "threshold": rag["threshold"],
                 "top_score": rag["top_score"],
+                "confidence_status": confidence_status,
                 "results": [
                     {
                         "id": item.get("id"),
@@ -2188,3 +2237,43 @@ async def dump_conversations_dom():
             "status": "error",
             "detail": str(exc)
         }
+
+
+# ==================== 会话状态管理 ====================
+
+class HandoffRequest(BaseModel):
+    conversation_id: str
+
+
+class ResolveRequest(BaseModel):
+    conversation_id: str
+
+
+@router.post("/conversations/{conversation_id}/handoff")
+async def handoff_conversation(conversation_id: str):
+    """人工接手会话（pending_handoff → human_taking）"""
+    from core.conversation_status import handoff_to_human
+
+    try:
+        result = handoff_to_human(conversation_id)
+        return result
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Failed to handoff conversation: %s", conversation_id)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.post("/conversations/{conversation_id}/resolve")
+async def resolve_conversation(conversation_id: str):
+    """标记会话已解决（human_taking → resolved）"""
+    from core.conversation_status import resolve_conversation as resolve_conv
+
+    try:
+        result = resolve_conv(conversation_id)
+        return result
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Failed to resolve conversation: %s", conversation_id)
+        raise HTTPException(status_code=500, detail=str(exc))

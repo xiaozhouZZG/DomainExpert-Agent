@@ -492,25 +492,53 @@ function renderConversations(data) {
         return;
     }
 
+    // 按状态排序：pending_handoff > human_taking > open > resolved
+    const statusPriority = {
+        'pending_handoff': 0,
+        'human_taking': 1,
+        'open': 2,
+        'bot': 2,
+        'resolved': 3
+    };
+
+    const sortedResults = [...results].sort((a, b) => {
+        const priorityA = statusPriority[a.status] ?? 2;
+        const priorityB = statusPriority[b.status] ?? 2;
+        if (priorityA !== priorityB) return priorityA - priorityB;
+        // 同优先级按时间排序
+        return new Date(b.updated_at || 0) - new Date(a.updated_at || 0);
+    });
+
     // 渲染会话列表
     container.innerHTML = '';
     container.className = 'conversations-list';
 
-    results.forEach(conv => {
+    sortedResults.forEach(conv => {
         const item = document.createElement('div');
         item.className = conv.is_system ? 'conversation-item system-conversation' : 'conversation-item';
 
         // 买家昵称
-        const buyerNick = conv.buyer_nick || '未知买家';
+        const buyerNick = conv.buyer_nick || conv.buyer_name || '未知买家';
         const systemTag = conv.is_system ? '<span class="system-tag">(系统)</span>' : '';
 
-        // 订单状态标签
-        let statusBadge = '';
+        // 会话状态徽章（新增）
+        let conversationStatusBadge = '';
+        const convStatus = conv.status || 'open';
+        if (convStatus === 'pending_handoff') {
+            conversationStatusBadge = '<span class="status-badge badge-orange">🔴 待人工</span>';
+        } else if (convStatus === 'human_taking') {
+            conversationStatusBadge = '<span class="status-badge badge-blue">👤 人工中</span>';
+        } else if (convStatus === 'resolved') {
+            conversationStatusBadge = '<span class="status-badge badge-green">✓ 已解决</span>';
+        }
+
+        // 订单状态标签（保留原有逻辑）
+        let orderStatusBadge = '';
         if (conv.order_status) {
             const isWait = conv.order_status.includes('等待');
             const isSuccess = conv.order_status.includes('成功');
             const badgeClass = isWait ? 'badge-orange' : (isSuccess ? 'badge-green' : 'badge-gray');
-            statusBadge = `<span class="status-badge ${badgeClass}">${escapeHtml(conv.order_status)}</span>`;
+            orderStatusBadge = `<span class="status-badge ${badgeClass}">${escapeHtml(conv.order_status)}</span>`;
         }
 
         // 最后消息
@@ -525,7 +553,10 @@ function renderConversations(data) {
                     ${conv.avatar_url ? `<img src="${escapeHtml(conv.avatar_url)}" class="buyer-avatar" alt="头像">` : '<div class="buyer-avatar-placeholder">👤</div>'}
                     <div class="buyer-details">
                         <div class="buyer-name">${escapeHtml(buyerNick)} ${systemTag}</div>
-                        ${statusBadge}
+                        <div class="badge-group">
+                            ${conversationStatusBadge}
+                            ${orderStatusBadge}
+                        </div>
                     </div>
                 </div>
                 ${conv.product_image ? `<img src="${escapeHtml(conv.product_image)}" class="product-thumb" alt="商品">` : ''}
@@ -533,19 +564,61 @@ function renderConversations(data) {
             <div class="conversation-message">${escapeHtml(lastMessage)}</div>
             <div class="conversation-footer">
                 <span class="conversation-time">${escapeHtml(timeStr)}</span>
-                ${!conv.is_system ? '<button class="btn-view-chat">查看对话</button>' : ''}
+                <div class="conversation-actions">
+                    ${!conv.is_system ? '<button class="btn-view-chat btn-sm">查看对话</button>' : ''}
+                    ${convStatus === 'pending_handoff' ? '<button class="btn-handoff btn-sm btn-primary">接手</button>' : ''}
+                    ${convStatus === 'human_taking' ? '<button class="btn-resolve btn-sm btn-success">已解决</button>' : ''}
+                </div>
             </div>
         `;
 
-        // 点击查看对话（待实现）
+        // 查看对话
         if (!conv.is_system) {
-            const btn = item.querySelector('.btn-view-chat');
-            if (btn) {
-                btn.addEventListener('click', (e) => {
+            const btnView = item.querySelector('.btn-view-chat');
+            if (btnView) {
+                btnView.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    alert(`会话 ${buyerNick} 的消息读取功能待实现（需要先dump消息气泡结构）`);
+                    viewConversationMessages(conv.conversation_id, buyerNick);
                 });
             }
+        }
+
+        // 接手按钮
+        const btnHandoff = item.querySelector('.btn-handoff');
+        if (btnHandoff) {
+            btnHandoff.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                if (!confirm(`确认接手会话 ${buyerNick} ？`)) return;
+
+                try {
+                    await api(`/api/xianyu/conversations/${conv.conversation_id}/handoff`, {
+                        method: 'POST'
+                    });
+                    alert('接手成功');
+                    loadConversations(); // 刷新列表
+                } catch (error) {
+                    alert(`接手失败: ${error.message}`);
+                }
+            });
+        }
+
+        // 已解决按钮
+        const btnResolve = item.querySelector('.btn-resolve');
+        if (btnResolve) {
+            btnResolve.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                if (!confirm(`确认标记会话 ${buyerNick} 为已解决？`)) return;
+
+                try {
+                    await api(`/api/xianyu/conversations/${conv.conversation_id}/resolve`, {
+                        method: 'POST'
+                    });
+                    alert('标记成功');
+                    loadConversations(); // 刷新列表
+                } catch (error) {
+                    alert(`标记失败: ${error.message}`);
+                }
+            });
         }
 
         container.appendChild(item);
@@ -561,3 +634,101 @@ document.addEventListener('DOMContentLoaded', () => {
     // 默认加载消息模块（占位）
     switchModule('messages');
 });
+
+// ==================== 查看对话 ====================
+
+async function viewConversationMessages(conversationId, buyerNick) {
+    const container = document.getElementById('conversations-container');
+    container.innerHTML = '<div class="loading">加载对话中...</div>';
+
+    try {
+        const data = await api(`/api/xianyu/conversations/${conversationId}/messages`);
+        renderConversationMessages(data, buyerNick);
+    } catch (error) {
+        container.innerHTML = `
+            <div style="color: var(--error); padding: 20px;">
+                加载对话失败: ${error.message}
+                <br><br>
+                <button onclick="loadConversations()" class="btn-primary">返回列表</button>
+            </div>
+        `;
+    }
+}
+
+function renderConversationMessages(data, buyerNick) {
+    const container = document.getElementById('conversations-container');
+    const { status, messages = [], conversation_id } = data;
+
+    if (status !== 'success') {
+        container.innerHTML = `
+            <div style="color: var(--error); padding: 20px;">
+                加载失败
+                <br><br>
+                <button onclick="loadConversations()" class="btn-primary">返回列表</button>
+            </div>
+        `;
+        return;
+    }
+
+    // 标题栏
+    let html = `
+        <div style="padding: 20px; border-bottom: 1px solid var(--border);">
+            <button onclick="loadConversations()" class="btn-sm" style="margin-bottom: 10px;">← 返回列表</button>
+            <h3 style="margin: 10px 0;">与 ${escapeHtml(buyerNick)} 的对话</h3>
+            <p style="color: var(--text-muted); font-size: 14px;">会话ID: ${escapeHtml(conversation_id)}</p>
+        </div>
+        <div style="padding: 20px; max-height: 600px; overflow-y: auto;">
+    `;
+
+    if (messages.length === 0) {
+        html += `<div style="text-align: center; color: var(--text-muted); padding: 40px;">暂无已存消息</div>`;
+    } else {
+        messages.forEach(msg => {
+            const isBuyer = msg.direction === 'buyer';
+            const alignClass = isBuyer ? 'message-left' : 'message-right';
+            const bgColor = isBuyer ? '#f0f0f0' : '#e3f2fd';
+            const label = isBuyer ? '买家' : '卖家';
+
+            // 解析 draft_reply（可能包含 holding 话术）
+            let draftReply = '';
+            if (msg.draft_reply) {
+                try {
+                    const draftData = JSON.parse(msg.draft_reply);
+                    if (draftData.type === 'handoff' && draftData.suggested_reply) {
+                        draftReply = `
+                            <div style="margin-top: 10px; padding: 10px; background: #fff3cd; border-left: 3px solid #ff9800; font-size: 13px;">
+                                <strong>💬 建议 Holding 话术：</strong><br>
+                                "${escapeHtml(draftData.suggested_reply)}"<br>
+                                <span style="color: #666; font-size: 12px;">⚠️ 请手动复制发送</span><br>
+                                <span style="color: #999; font-size: 11px;">原因: ${draftData.reason} (分数: ${draftData.confidence_score?.toFixed(4) || 'N/A'})</span>
+                            </div>
+                        `;
+                    }
+                } catch (e) {
+                    // 非 JSON 格式，当作普通 draft
+                    draftReply = `
+                        <div style="margin-top: 10px; padding: 8px; background: #f9f9f9; border-left: 2px solid #ccc; font-size: 13px;">
+                            <strong>草稿:</strong> ${escapeHtml(msg.draft_reply.substring(0, 100))}...
+                        </div>
+                    `;
+                }
+            }
+
+            html += `
+                <div class="${alignClass}" style="margin-bottom: 15px;">
+                    <div style="display: inline-block; max-width: 70%; padding: 10px 15px; background: ${bgColor}; border-radius: 10px;">
+                        <div style="font-size: 12px; color: #666; margin-bottom: 5px;">
+                            ${label} · ${escapeHtml(msg.created_at || '')}
+                        </div>
+                        <div>${escapeHtml(msg.content)}</div>
+                        ${draftReply}
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    html += '</div>';
+
+    container.innerHTML = html;
+}

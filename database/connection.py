@@ -378,18 +378,18 @@ def ensure_db_ready() -> dict[str, object]:
     """Create schema and seed required baseline data."""
     ensure_tables()
 
-    from seed import has_required_seed_data, seed_all
-
-    seeded = False
-    seed_stats: dict[str, int] = {}
-    if not has_required_seed_data():
-        seed_stats = seed_all()
-        seeded = True
+    # seed.py已删除（假竞品数据，非运行时必需）
+    # from seed import has_required_seed_data, seed_all
+    # seeded = False
+    # seed_stats: dict[str, int] = {}
+    # if not has_required_seed_data():
+    #     seed_stats = seed_all()
+    #     seeded = True
 
     return {
         "db_path": DB_PATH,
-        "seeded": seeded,
-        "seed_stats": seed_stats,
+        "seeded": False,
+        "seed_stats": {},
     }
 
 

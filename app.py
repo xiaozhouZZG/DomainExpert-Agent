@@ -66,7 +66,6 @@ app.mount("/static", StaticFiles(directory="web/static"), name="static")
 from api.admin import router as admin_router
 from api.chat import router as chat_router
 from api.dashboard import router as dashboard_router
-from api.greeting import router as greeting_router
 from api.knowledge import router as kb_router
 from api.sessions import router as sessions_router
 from api.xianyu import router as xianyu_router
@@ -77,7 +76,6 @@ app.include_router(kb_router)
 app.include_router(admin_router)
 app.include_router(dashboard_router)
 app.include_router(sessions_router, prefix="/api")
-app.include_router(greeting_router)
 app.include_router(xianyu_router)
 app.include_router(xianyu_dump_router, prefix="/api/xianyu")
 
@@ -87,29 +85,9 @@ async def root():
     return FileResponse("web/main.html")
 
 
-@app.get("/chat")
-async def chat_page():
-    return FileResponse("web/index.html")
-
-
-@app.get("/kb")
-async def kb_page():
-    return FileResponse("web/kb.html")
-
-
 @app.get("/admin")
 async def admin_page():
     return FileResponse("web/admin.html")
-
-
-@app.get("/xianyu-old")
-async def xianyu_old_page():
-    return FileResponse("web/xianyu.html")
-
-
-@app.get("/dashboard-old")
-async def dashboard_old_page():
-    return FileResponse("web/dashboard.html")
 
 
 if __name__ == "__main__":

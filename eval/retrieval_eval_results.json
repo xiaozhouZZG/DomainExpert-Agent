@@ -2,6 +2,7 @@
   {
     "question": "键盘大概多少钱",
     "category": "price",
+    "is_negative": false,
     "expected_ids": [
       "xianyu-reply-seed-keyboard_chunk_0_0"
     ],
@@ -42,6 +43,7 @@
         "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
       }
     ],
+    "top1_score": 0.6970680952072144,
     "recall@5": 1.0,
     "hit@5": true,
     "first_hit_rank@5": 2,
@@ -52,6 +54,7 @@
   {
     "question": "这个键盘啥价位",
     "category": "price",
+    "is_negative": false,
     "expected_ids": [
       "xianyu-reply-seed-keyboard_chunk_0_0"
     ],
@@ -92,6 +95,7 @@
         "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
       }
     ],
+    "top1_score": 0.6553462147712708,
     "recall@5": 1.0,
     "hit@5": true,
     "first_hit_rank@5": 2,
@@ -102,9 +106,10 @@
   {
     "question": "键盘市场价多少",
     "category": "price",
+    "is_negative": false,
     "expected_ids": [
-      "xianyu-reply-seed-keyboard_chunk_5_0",
-      "xianyu-reply-seed-keyboard_chunk_0_0"
+      "xianyu-reply-seed-keyboard_chunk_0_0",
+      "xianyu-reply-seed-keyboard_chunk_5_0"
     ],
     "retrieved": [
       {
@@ -143,6 +148,7 @@
         "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
       }
     ],
+    "top1_score": 0.7251273989677429,
     "recall@5": 1.0,
     "hit@5": true,
     "first_hit_rank@5": 1,
@@ -153,6 +159,7 @@
   {
     "question": "能便宜点吗",
     "category": "negotiation",
+    "is_negative": false,
     "expected_ids": [
       "xianyu-reply-seed-keyboard_chunk_2_0"
     ],
@@ -193,6 +200,7 @@
         "text_preview": "成色描述要真实：如有轻微使用痕迹，需要主动说明；可支持补充按键细节、背面铭牌、接口和通电照片给买家确认。买家关心验货时，应回复“签收后请先检查外观和基础按键功能"
       }
     ],
+    "top1_score": 0.5582000017166138,
     "recall@5": 1.0,
     "hit@5": true,
     "first_hit_rank@5": 1,
@@ -203,6 +211,7 @@
   {
     "question": "可以刀一刀吗",
     "category": "negotiation",
+    "is_negative": false,
     "expected_ids": [
       "xianyu-reply-seed-keyboard_chunk_2_0"
     ],
@@ -243,6 +252,7 @@
         "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
       }
     ],
+    "top1_score": 0.689536452293396,
     "recall@5": 1.0,
     "hit@5": true,
     "first_hit_rank@5": 1,
@@ -253,6 +263,7 @@
   {
     "question": "能不能降价",
     "category": "negotiation",
+    "is_negative": false,
     "expected_ids": [
       "xianyu-reply-seed-keyboard_chunk_2_0"
     ],
@@ -293,6 +304,7 @@
         "text_preview": "成色描述要真实：如有轻微使用痕迹，需要主动说明；可支持补充按键细节、背面铭牌、接口和通电照片给买家确认。买家关心验货时，应回复“签收后请先检查外观和基础按键功能"
       }
     ],
+    "top1_score": 0.7216671109199524,
     "recall@5": 1.0,
     "hit@5": true,
     "first_hit_rank@5": 1,
@@ -303,6 +315,7 @@
   {
     "question": "这个价格有点贵啊",
     "category": "negotiation",
+    "is_negative": false,
     "expected_ids": [
       "xianyu-reply-seed-keyboard_chunk_2_0"
     ],
@@ -343,6 +356,7 @@
         "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
       }
     ],
+    "top1_score": 0.5955843925476074,
     "recall@5": 1.0,
     "hit@5": true,
     "first_hit_rank@5": 1,
@@ -353,6 +367,7 @@
   {
     "question": "什么时候发货",
     "category": "shipping",
+    "is_negative": false,
     "expected_ids": [
       "xianyu-reply-seed-keyboard_chunk_3_0"
     ],
@@ -393,6 +408,7 @@
         "text_preview": "真实竞品低价样本: 标题《长城有线发光游戏键盘104键 有线连接 炫酷灯效 功能正常 键盘无拆修 无磕碰，无原包装 低价转让》，价格 ¥9.9，想要/热度 未知"
       }
     ],
+    "top1_score": 0.7167518138885498,
     "recall@5": 1.0,
     "hit@5": true,
     "first_hit_rank@5": 1,
@@ -403,6 +419,7 @@
   {
     "question": "多久能发出",
     "category": "shipping",
+    "is_negative": false,
     "expected_ids": [
       "xianyu-reply-seed-keyboard_chunk_3_0"
     ],
@@ -443,6 +460,7 @@
         "text_preview": "成色描述要真实：如有轻微使用痕迹，需要主动说明；可支持补充按键细节、背面铭牌、接口和通电照片给买家确认。买家关心验货时，应回复“签收后请先检查外观和基础按键功能"
       }
     ],
+    "top1_score": 0.7290763258934021,
     "recall@5": 1.0,
     "hit@5": true,
     "first_hit_rank@5": 1,
@@ -453,6 +471,7 @@
   {
     "question": "付款后多久发",
     "category": "shipping",
+    "is_negative": false,
     "expected_ids": [
       "xianyu-reply-seed-keyboard_chunk_3_0"
     ],
@@ -493,6 +512,7 @@
         "text_preview": "真实竞品热度样本: 标题《全新AOC KM160有线键鼠套装，大量现货批发。全新原装正 品，USB接口，黑色经典款。键盘104键设计，1200 DPI追踪引擎，"
       }
     ],
+    "top1_score": 0.7308603525161743,
     "recall@5": 1.0,
     "hit@5": true,
     "first_hit_rank@5": 1,
@@ -503,6 +523,7 @@
   {
     "question": "今天能发吗",
     "category": "shipping",
+    "is_negative": false,
     "expected_ids": [
       "xianyu-reply-seed-keyboard_chunk_3_0"
     ],
@@ -543,6 +564,7 @@
         "text_preview": "成色描述要真实：如有轻微使用痕迹，需要主动说明；可支持补充按键细节、背面铭牌、接口和通电照片给买家确认。买家关心验货时，应回复“签收后请先检查外观和基础按键功能"
       }
     ],
+    "top1_score": 0.6077756285667419,
     "recall@5": 1.0,
     "hit@5": true,
     "first_hit_rank@5": 1,
@@ -553,6 +575,7 @@
   {
     "question": "是什么轴",
     "category": "product_info",
+    "is_negative": false,
     "expected_ids": [
       "xianyu-reply-seed-keyboard_chunk_1_0"
     ],
@@ -593,6 +616,7 @@
         "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
       }
     ],
+    "top1_score": 0.5863345861434937,
     "recall@5": 1.0,
     "hit@5": true,
     "first_hit_rank@5": 1,
@@ -603,6 +627,7 @@
   {
     "question": "机械键盘吗",
     "category": "product_info",
+    "is_negative": false,
     "expected_ids": [
       "xianyu-reply-seed-keyboard_chunk_1_0"
     ],
@@ -643,6 +668,7 @@
         "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
       }
     ],
+    "top1_score": 0.7121730446815491,
     "recall@5": 1.0,
     "hit@5": true,
     "first_hit_rank@5": 1,
@@ -653,6 +679,7 @@
   {
     "question": "轴体是啥",
     "category": "product_info",
+    "is_negative": false,
     "expected_ids": [
       "xianyu-reply-seed-keyboard_chunk_1_0"
     ],
@@ -693,6 +720,7 @@
         "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
       }
     ],
+    "top1_score": 0.677391767501831,
     "recall@5": 1.0,
     "hit@5": true,
     "first_hit_rank@5": 1,
@@ -703,6 +731,7 @@
   {
     "question": "键盘手感怎么样",
     "category": "product_info",
+    "is_negative": false,
     "expected_ids": [
       "xianyu-reply-seed-keyboard_chunk_1_0"
     ],
@@ -743,6 +772,7 @@
         "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
       }
     ],
+    "top1_score": 0.7144033312797546,
     "recall@5": 1.0,
     "hit@5": true,
     "first_hit_rank@5": 1,
@@ -753,6 +783,7 @@
   {
     "question": "成色如何",
     "category": "condition",
+    "is_negative": false,
     "expected_ids": [
       "xianyu-reply-seed-keyboard_chunk_4_0"
     ],
@@ -793,6 +824,7 @@
         "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
       }
     ],
+    "top1_score": 0.7206178307533264,
     "recall@5": 1.0,
     "hit@5": true,
     "first_hit_rank@5": 1,
@@ -803,6 +835,7 @@
   {
     "question": "有没有划痕",
     "category": "condition",
+    "is_negative": false,
     "expected_ids": [
       "xianyu-reply-seed-keyboard_chunk_4_0"
     ],
@@ -843,6 +876,7 @@
         "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
       }
     ],
+    "top1_score": 0.5560815334320068,
     "recall@5": 1.0,
     "hit@5": true,
     "first_hit_rank@5": 1,
@@ -853,6 +887,7 @@
   {
     "question": "能补图吗",
     "category": "condition",
+    "is_negative": false,
     "expected_ids": [
       "xianyu-reply-seed-keyboard_chunk_4_0"
     ],
@@ -893,6 +928,7 @@
         "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
       }
     ],
+    "top1_score": 0.682238757610321,
     "recall@5": 1.0,
     "hit@5": true,
     "first_hit_rank@5": 2,
@@ -903,6 +939,7 @@
   {
     "question": "有使用痕迹吗",
     "category": "condition",
+    "is_negative": false,
     "expected_ids": [
       "xianyu-reply-seed-keyboard_chunk_4_0"
     ],
@@ -943,6 +980,7 @@
         "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
       }
     ],
+    "top1_score": 0.7245824933052063,
     "recall@5": 1.0,
     "hit@5": true,
     "first_hit_rank@5": 1,
@@ -953,6 +991,7 @@
   {
     "question": "怎么验货",
     "category": "condition",
+    "is_negative": false,
     "expected_ids": [
       "xianyu-reply-seed-keyboard_chunk_4_0"
     ],
@@ -993,6 +1032,7 @@
         "text_preview": "真实竞品低价样本: 标题《长城有线发光游戏键盘104键 有线连接 炫酷灯效 功能正常 键盘无拆修 无磕碰，无原包装 低价转让》，价格 ¥9.9，想要/热度 未知"
       }
     ],
+    "top1_score": 0.6466416716575623,
     "recall@5": 1.0,
     "hit@5": true,
     "first_hit_rank@5": 1,
@@ -1003,6 +1043,7 @@
   {
     "question": "键盘怎么定价",
     "category": "price",
+    "is_negative": false,
     "expected_ids": [
       "xianyu-reply-seed-keyboard_chunk_0_0"
     ],
@@ -1043,6 +1084,7 @@
         "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
       }
     ],
+    "top1_score": 0.7135154008865356,
     "recall@5": 1.0,
     "hit@5": true,
     "first_hit_rank@5": 1,
@@ -1053,6 +1095,7 @@
   {
     "question": "标题怎么写",
     "category": "listing",
+    "is_negative": false,
     "expected_ids": [
       "xianyu-reply-seed-keyboard_chunk_0_0"
     ],
@@ -1093,6 +1136,7 @@
         "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
       }
     ],
+    "top1_score": 0.5744193196296692,
     "recall@5": 1.0,
     "hit@5": true,
     "first_hit_rank@5": 1,
@@ -1103,6 +1147,7 @@
   {
     "question": "有什么卖点",
     "category": "product_info",
+    "is_negative": false,
     "expected_ids": [
       "xianyu-reply-seed-keyboard_chunk_1_0"
     ],
@@ -1143,6 +1188,7 @@
         "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
       }
     ],
+    "top1_score": 0.5433799028396606,
     "recall@5": 1.0,
     "hit@5": true,
     "first_hit_rank@5": 1,
@@ -1153,9 +1199,10 @@
   {
     "question": "同类键盘多少钱",
     "category": "price",
+    "is_negative": false,
     "expected_ids": [
-      "xianyu-reply-seed-keyboard_chunk_5_0",
-      "xianyu-reply-seed-keyboard_chunk_0_0"
+      "xianyu-reply-seed-keyboard_chunk_0_0",
+      "xianyu-reply-seed-keyboard_chunk_5_0"
     ],
     "retrieved": [
       {
@@ -1194,6 +1241,7 @@
         "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
       }
     ],
+    "top1_score": 0.7274752259254456,
     "recall@5": 1.0,
     "hit@5": true,
     "first_hit_rank@5": 2,
@@ -1204,9 +1252,10 @@
   {
     "question": "其他卖家卖多少",
     "category": "market",
+    "is_negative": false,
     "expected_ids": [
-      "xianyu-reply-seed-keyboard_chunk_5_0",
-      "xianyu-reply-seed-keyboard_chunk_5_1"
+      "xianyu-reply-seed-keyboard_chunk_5_1",
+      "xianyu-reply-seed-keyboard_chunk_5_0"
     ],
     "retrieved": [
       {
@@ -1245,6 +1294,7 @@
         "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
       }
     ],
+    "top1_score": 0.5683897733688354,
     "recall@5": 1.0,
     "hit@5": true,
     "first_hit_rank@5": 2,
@@ -1255,6 +1305,7 @@
   {
     "question": "热门键盘有哪些",
     "category": "market",
+    "is_negative": false,
     "expected_ids": [
       "xianyu-reply-seed-keyboard_chunk_5_1"
     ],
@@ -1295,6 +1346,7 @@
         "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
       }
     ],
+    "top1_score": 0.629936933517456,
     "recall@5": 1.0,
     "hit@5": true,
     "first_hit_rank@5": 2,
@@ -1305,6 +1357,7 @@
   {
     "question": "最便宜的键盘多少钱",
     "category": "market",
+    "is_negative": false,
     "expected_ids": [
       "xianyu-reply-seed-keyboard_chunk_5_0"
     ],
@@ -1345,6 +1398,7 @@
         "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
       }
     ],
+    "top1_score": 0.715728223323822,
     "recall@5": 1.0,
     "hit@5": true,
     "first_hit_rank@5": 2,
@@ -1355,6 +1409,7 @@
   {
     "question": "包邮吗",
     "category": "shipping",
+    "is_negative": false,
     "expected_ids": [
       "xianyu-reply-seed-keyboard_chunk_3_0"
     ],
@@ -1395,6 +1450,7 @@
         "text_preview": "回复买家时只能陈述已经确认的商品信息，不得凭空承诺键盘一定是机械轴、全新、原厂配件齐全。\n如果尚未确认轴体类型，应明确回复“具体轴体以实物/铭牌为准，可以补图确"
       }
     ],
+    "top1_score": 0.5284702181816101,
     "recall@5": 1.0,
     "hit@5": true,
     "first_hit_rank@5": 2,
@@ -1405,6 +1461,7 @@
   {
     "question": "节假日能发货吗",
     "category": "shipping",
+    "is_negative": false,
     "expected_ids": [
       "xianyu-reply-seed-keyboard_chunk_3_0"
     ],
@@ -1445,6 +1502,7 @@
         "text_preview": "回复买家时只能陈述已经确认的商品信息，不得凭空承诺键盘一定是机械轴、全新、原厂配件齐全。\n如果尚未确认轴体类型，应明确回复“具体轴体以实物/铭牌为准，可以补图确"
       }
     ],
+    "top1_score": 0.7135909199714661,
     "recall@5": 1.0,
     "hit@5": true,
     "first_hit_rank@5": 1,
@@ -1455,6 +1513,7 @@
   {
     "question": "收到货有问题怎么办",
     "category": "condition",
+    "is_negative": false,
     "expected_ids": [
       "xianyu-reply-seed-keyboard_chunk_4_0"
     ],
@@ -1495,11 +1554,762 @@
         "text_preview": "真实竞品低价样本: 标题《长城有线发光游戏键盘104键 有线连接 炫酷灯效 功能正常 键盘无拆修 无磕碰，无原包装 低价转让》，价格 ¥9.9，想要/热度 未知"
       }
     ],
+    "top1_score": 0.6525858044624329,
     "recall@5": 1.0,
     "hit@5": true,
     "first_hit_rank@5": 1,
     "recall@10": 1.0,
     "hit@10": true,
     "first_hit_rank@10": 1
+  },
+  {
+    "question": "支持货到付款吗",
+    "category": "negative",
+    "is_negative": true,
+    "expected_ids": [],
+    "retrieved": [
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_4_0",
+        "score": 0.5286,
+        "text_preview": "成色描述要真实：如有轻微使用痕迹，需要主动说明；可支持补充按键细节、背面铭牌、接口和通电照片给买家确认。买家关心验货时，应回复“签收后请先检查外观和基础按键功能"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_3_0",
+        "score": 0.5102,
+        "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_5_0",
+        "score": 0.5032,
+        "text_preview": "真实竞品低价样本: 标题《长城有线发光游戏键盘104键 有线连接 炫酷灯效 功能正常 键盘无拆修 无磕碰，无原包装 低价转让》，价格 ¥9.9，想要/热度 未知"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_1_0",
+        "score": 0.5024,
+        "text_preview": "回复买家时只能陈述已经确认的商品信息，不得凭空承诺键盘一定是机械轴、全新、原厂配件齐全。\n如果尚未确认轴体类型，应明确回复“具体轴体以实物/铭牌为准，可以补图确"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_2_0",
+        "score": 0.5012,
+        "text_preview": "关于议价，口径要保守：可以接受合理小刀，但不直接承诺大幅降价。\n参考真实竞品价格区间 ¥9.9~¥85.0 和中位价 ¥20.0，若当前报价已接近中位价或低价段"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_0_0",
+        "score": 0.5009,
+        "text_preview": "商品关键词: 键盘。\n真实竞品共 25 条，价格区间为 ¥9.9 到 ¥85.0，中位价约 ¥20.0，均价约 ¥32.3。\n当前上架建议是走保守实用路线：标题"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_5_1",
+        "score": 0.5006,
+        "text_preview": "真实竞品热度样本: 标题《全新AOC KM160有线键鼠套装，大量现货批发。全新原装正 品，USB接口，黑色经典款。键盘104键设计，1200 DPI追踪引擎，"
+      }
+    ],
+    "top1_score": 0.5286463499069214,
+    "recall@5": null,
+    "recall@10": null,
+    "hit@5": null,
+    "hit@10": null,
+    "first_hit_rank@5": null,
+    "first_hit_rank@10": null
+  },
+  {
+    "question": "能开发票吗",
+    "category": "negative",
+    "is_negative": true,
+    "expected_ids": [],
+    "retrieved": [
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_0_0",
+        "score": 0.5005,
+        "text_preview": "商品关键词: 键盘。\n真实竞品共 25 条，价格区间为 ¥9.9 到 ¥85.0，中位价约 ¥20.0，均价约 ¥32.3。\n当前上架建议是走保守实用路线：标题"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_2_0",
+        "score": 0.5002,
+        "text_preview": "关于议价，口径要保守：可以接受合理小刀，但不直接承诺大幅降价。\n参考真实竞品价格区间 ¥9.9~¥85.0 和中位价 ¥20.0，若当前报价已接近中位价或低价段"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_5_0",
+        "score": 0.5001,
+        "text_preview": "真实竞品低价样本: 标题《长城有线发光游戏键盘104键 有线连接 炫酷灯效 功能正常 键盘无拆修 无磕碰，无原包装 低价转让》，价格 ¥9.9，想要/热度 未知"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_4_0",
+        "score": 0.5001,
+        "text_preview": "成色描述要真实：如有轻微使用痕迹，需要主动说明；可支持补充按键细节、背面铭牌、接口和通电照片给买家确认。买家关心验货时，应回复“签收后请先检查外观和基础按键功能"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_1_0",
+        "score": 0.5,
+        "text_preview": "回复买家时只能陈述已经确认的商品信息，不得凭空承诺键盘一定是机械轴、全新、原厂配件齐全。\n如果尚未确认轴体类型，应明确回复“具体轴体以实物/铭牌为准，可以补图确"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_3_0",
+        "score": 0.5,
+        "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_5_1",
+        "score": 0.5,
+        "text_preview": "真实竞品热度样本: 标题《全新AOC KM160有线键鼠套装，大量现货批发。全新原装正 品，USB接口，黑色经典款。键盘104键设计，1200 DPI追踪引擎，"
+      }
+    ],
+    "top1_score": 0.500452995300293,
+    "recall@5": null,
+    "recall@10": null,
+    "hit@5": null,
+    "hit@10": null,
+    "first_hit_rank@5": null,
+    "first_hit_rank@10": null
+  },
+  {
+    "question": "保修几年",
+    "category": "negative",
+    "is_negative": true,
+    "expected_ids": [],
+    "retrieved": [
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_5_0",
+        "score": 0.5001,
+        "text_preview": "真实竞品低价样本: 标题《长城有线发光游戏键盘104键 有线连接 炫酷灯效 功能正常 键盘无拆修 无磕碰，无原包装 低价转让》，价格 ¥9.9，想要/热度 未知"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_5_1",
+        "score": 0.5,
+        "text_preview": "真实竞品热度样本: 标题《全新AOC KM160有线键鼠套装，大量现货批发。全新原装正 品，USB接口，黑色经典款。键盘104键设计，1200 DPI追踪引擎，"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_2_0",
+        "score": 0.5,
+        "text_preview": "关于议价，口径要保守：可以接受合理小刀，但不直接承诺大幅降价。\n参考真实竞品价格区间 ¥9.9~¥85.0 和中位价 ¥20.0，若当前报价已接近中位价或低价段"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_3_0",
+        "score": 0.5,
+        "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_4_0",
+        "score": 0.5,
+        "text_preview": "成色描述要真实：如有轻微使用痕迹，需要主动说明；可支持补充按键细节、背面铭牌、接口和通电照片给买家确认。买家关心验货时，应回复“签收后请先检查外观和基础按键功能"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_1_0",
+        "score": 0.5,
+        "text_preview": "回复买家时只能陈述已经确认的商品信息，不得凭空承诺键盘一定是机械轴、全新、原厂配件齐全。\n如果尚未确认轴体类型，应明确回复“具体轴体以实物/铭牌为准，可以补图确"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_0_0",
+        "score": 0.5,
+        "text_preview": "商品关键词: 键盘。\n真实竞品共 25 条，价格区间为 ¥9.9 到 ¥85.0，中位价约 ¥20.0，均价约 ¥32.3。\n当前上架建议是走保守实用路线：标题"
+      }
+    ],
+    "top1_score": 0.5001152753829956,
+    "recall@5": null,
+    "recall@10": null,
+    "hit@5": null,
+    "hit@10": null,
+    "first_hit_rank@5": null,
+    "first_hit_rank@10": null
+  },
+  {
+    "question": "有三包服务吗",
+    "category": "negative",
+    "is_negative": true,
+    "expected_ids": [],
+    "retrieved": [
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_4_0",
+        "score": 0.5042,
+        "text_preview": "成色描述要真实：如有轻微使用痕迹，需要主动说明；可支持补充按键细节、背面铭牌、接口和通电照片给买家确认。买家关心验货时，应回复“签收后请先检查外观和基础按键功能"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_5_0",
+        "score": 0.502,
+        "text_preview": "真实竞品低价样本: 标题《长城有线发光游戏键盘104键 有线连接 炫酷灯效 功能正常 键盘无拆修 无磕碰，无原包装 低价转让》，价格 ¥9.9，想要/热度 未知"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_3_0",
+        "score": 0.5017,
+        "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_1_0",
+        "score": 0.5007,
+        "text_preview": "回复买家时只能陈述已经确认的商品信息，不得凭空承诺键盘一定是机械轴、全新、原厂配件齐全。\n如果尚未确认轴体类型，应明确回复“具体轴体以实物/铭牌为准，可以补图确"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_5_1",
+        "score": 0.5005,
+        "text_preview": "真实竞品热度样本: 标题《全新AOC KM160有线键鼠套装，大量现货批发。全新原装正 品，USB接口，黑色经典款。键盘104键设计，1200 DPI追踪引擎，"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_0_0",
+        "score": 0.5004,
+        "text_preview": "商品关键词: 键盘。\n真实竞品共 25 条，价格区间为 ¥9.9 到 ¥85.0，中位价约 ¥20.0，均价约 ¥32.3。\n当前上架建议是走保守实用路线：标题"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_2_0",
+        "score": 0.5002,
+        "text_preview": "关于议价，口径要保守：可以接受合理小刀，但不直接承诺大幅降价。\n参考真实竞品价格区间 ¥9.9~¥85.0 和中位价 ¥20.0，若当前报价已接近中位价或低价段"
+      }
+    ],
+    "top1_score": 0.5041832327842712,
+    "recall@5": null,
+    "recall@10": null,
+    "hit@5": null,
+    "hit@10": null,
+    "first_hit_rank@5": null,
+    "first_hit_rank@10": null
+  },
+  {
+    "question": "支持花呗分期吗",
+    "category": "negative",
+    "is_negative": true,
+    "expected_ids": [],
+    "retrieved": [
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_2_0",
+        "score": 0.502,
+        "text_preview": "关于议价，口径要保守：可以接受合理小刀，但不直接承诺大幅降价。\n参考真实竞品价格区间 ¥9.9~¥85.0 和中位价 ¥20.0，若当前报价已接近中位价或低价段"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_0_0",
+        "score": 0.5005,
+        "text_preview": "商品关键词: 键盘。\n真实竞品共 25 条，价格区间为 ¥9.9 到 ¥85.0，中位价约 ¥20.0，均价约 ¥32.3。\n当前上架建议是走保守实用路线：标题"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_4_0",
+        "score": 0.5002,
+        "text_preview": "成色描述要真实：如有轻微使用痕迹，需要主动说明；可支持补充按键细节、背面铭牌、接口和通电照片给买家确认。买家关心验货时，应回复“签收后请先检查外观和基础按键功能"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_5_0",
+        "score": 0.5002,
+        "text_preview": "真实竞品低价样本: 标题《长城有线发光游戏键盘104键 有线连接 炫酷灯效 功能正常 键盘无拆修 无磕碰，无原包装 低价转让》，价格 ¥9.9，想要/热度 未知"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_3_0",
+        "score": 0.5,
+        "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_1_0",
+        "score": 0.5,
+        "text_preview": "回复买家时只能陈述已经确认的商品信息，不得凭空承诺键盘一定是机械轴、全新、原厂配件齐全。\n如果尚未确认轴体类型，应明确回复“具体轴体以实物/铭牌为准，可以补图确"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_5_1",
+        "score": 0.5,
+        "text_preview": "真实竞品热度样本: 标题《全新AOC KM160有线键鼠套装，大量现货批发。全新原装正 品，USB接口，黑色经典款。键盘104键设计，1200 DPI追踪引擎，"
+      }
+    ],
+    "top1_score": 0.5019531846046448,
+    "recall@5": null,
+    "recall@10": null,
+    "hit@5": null,
+    "hit@10": null,
+    "first_hit_rank@5": null,
+    "first_hit_rank@10": null
+  },
+  {
+    "question": "可以线下自提吗",
+    "category": "negative",
+    "is_negative": true,
+    "expected_ids": [],
+    "retrieved": [
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_5_0",
+        "score": 0.5092,
+        "text_preview": "真实竞品低价样本: 标题《长城有线发光游戏键盘104键 有线连接 炫酷灯效 功能正常 键盘无拆修 无磕碰，无原包装 低价转让》，价格 ¥9.9，想要/热度 未知"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_2_0",
+        "score": 0.504,
+        "text_preview": "关于议价，口径要保守：可以接受合理小刀，但不直接承诺大幅降价。\n参考真实竞品价格区间 ¥9.9~¥85.0 和中位价 ¥20.0，若当前报价已接近中位价或低价段"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_0_0",
+        "score": 0.5006,
+        "text_preview": "商品关键词: 键盘。\n真实竞品共 25 条，价格区间为 ¥9.9 到 ¥85.0，中位价约 ¥20.0，均价约 ¥32.3。\n当前上架建议是走保守实用路线：标题"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_3_0",
+        "score": 0.5004,
+        "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_1_0",
+        "score": 0.5003,
+        "text_preview": "回复买家时只能陈述已经确认的商品信息，不得凭空承诺键盘一定是机械轴、全新、原厂配件齐全。\n如果尚未确认轴体类型，应明确回复“具体轴体以实物/铭牌为准，可以补图确"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_4_0",
+        "score": 0.5001,
+        "text_preview": "成色描述要真实：如有轻微使用痕迹，需要主动说明；可支持补充按键细节、背面铭牌、接口和通电照片给买家确认。买家关心验货时，应回复“签收后请先检查外观和基础按键功能"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_5_1",
+        "score": 0.5001,
+        "text_preview": "真实竞品热度样本: 标题《全新AOC KM160有线键鼠套装，大量现货批发。全新原装正 品，USB接口，黑色经典款。键盘104键设计，1200 DPI追踪引擎，"
+      }
+    ],
+    "top1_score": 0.5092127323150635,
+    "recall@5": null,
+    "recall@10": null,
+    "hit@5": null,
+    "hit@10": null,
+    "first_hit_rank@5": null,
+    "first_hit_rank@10": null
+  },
+  {
+    "question": "包装盒还在吗",
+    "category": "negative",
+    "is_negative": true,
+    "expected_ids": [],
+    "retrieved": [
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_4_0",
+        "score": 0.5047,
+        "text_preview": "成色描述要真实：如有轻微使用痕迹，需要主动说明；可支持补充按键细节、背面铭牌、接口和通电照片给买家确认。买家关心验货时，应回复“签收后请先检查外观和基础按键功能"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_2_0",
+        "score": 0.5013,
+        "text_preview": "关于议价，口径要保守：可以接受合理小刀，但不直接承诺大幅降价。\n参考真实竞品价格区间 ¥9.9~¥85.0 和中位价 ¥20.0，若当前报价已接近中位价或低价段"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_1_0",
+        "score": 0.5009,
+        "text_preview": "回复买家时只能陈述已经确认的商品信息，不得凭空承诺键盘一定是机械轴、全新、原厂配件齐全。\n如果尚未确认轴体类型，应明确回复“具体轴体以实物/铭牌为准，可以补图确"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_0_0",
+        "score": 0.5008,
+        "text_preview": "商品关键词: 键盘。\n真实竞品共 25 条，价格区间为 ¥9.9 到 ¥85.0，中位价约 ¥20.0，均价约 ¥32.3。\n当前上架建议是走保守实用路线：标题"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_3_0",
+        "score": 0.5008,
+        "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_5_0",
+        "score": 0.5005,
+        "text_preview": "真实竞品低价样本: 标题《长城有线发光游戏键盘104键 有线连接 炫酷灯效 功能正常 键盘无拆修 无磕碰，无原包装 低价转让》，价格 ¥9.9，想要/热度 未知"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_5_1",
+        "score": 0.5002,
+        "text_preview": "真实竞品热度样本: 标题《全新AOC KM160有线键鼠套装，大量现货批发。全新原装正 品，USB接口，黑色经典款。键盘104键设计，1200 DPI追踪引擎，"
+      }
+    ],
+    "top1_score": 0.5047121644020081,
+    "recall@5": null,
+    "recall@10": null,
+    "hit@5": null,
+    "hit@10": null,
+    "first_hit_rank@5": null,
+    "first_hit_rank@10": null
+  },
+  {
+    "question": "键盘重量多少",
+    "category": "negative",
+    "is_negative": true,
+    "expected_ids": [],
+    "retrieved": [
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_2_0",
+        "score": 0.5237,
+        "text_preview": "关于议价，口径要保守：可以接受合理小刀，但不直接承诺大幅降价。\n参考真实竞品价格区间 ¥9.9~¥85.0 和中位价 ¥20.0，若当前报价已接近中位价或低价段"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_0_0",
+        "score": 0.5069,
+        "text_preview": "商品关键词: 键盘。\n真实竞品共 25 条，价格区间为 ¥9.9 到 ¥85.0，中位价约 ¥20.0，均价约 ¥32.3。\n当前上架建议是走保守实用路线：标题"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_5_0",
+        "score": 0.5069,
+        "text_preview": "真实竞品低价样本: 标题《长城有线发光游戏键盘104键 有线连接 炫酷灯效 功能正常 键盘无拆修 无磕碰，无原包装 低价转让》，价格 ¥9.9，想要/热度 未知"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_1_0",
+        "score": 0.5023,
+        "text_preview": "回复买家时只能陈述已经确认的商品信息，不得凭空承诺键盘一定是机械轴、全新、原厂配件齐全。\n如果尚未确认轴体类型，应明确回复“具体轴体以实物/铭牌为准，可以补图确"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_5_1",
+        "score": 0.5019,
+        "text_preview": "真实竞品热度样本: 标题《全新AOC KM160有线键鼠套装，大量现货批发。全新原装正 品，USB接口，黑色经典款。键盘104键设计，1200 DPI追踪引擎，"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_4_0",
+        "score": 0.5,
+        "text_preview": "成色描述要真实：如有轻微使用痕迹，需要主动说明；可支持补充按键细节、背面铭牌、接口和通电照片给买家确认。买家关心验货时，应回复“签收后请先检查外观和基础按键功能"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_3_0",
+        "score": 0.5,
+        "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
+      }
+    ],
+    "top1_score": 0.5237075090408325,
+    "recall@5": null,
+    "recall@10": null,
+    "hit@5": null,
+    "hit@10": null,
+    "first_hit_rank@5": null,
+    "first_hit_rank@10": null
+  },
+  {
+    "question": "支持RGB灯光调节吗",
+    "category": "negative",
+    "is_negative": true,
+    "expected_ids": [],
+    "retrieved": [
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_5_0",
+        "score": 0.5483,
+        "text_preview": "真实竞品低价样本: 标题《长城有线发光游戏键盘104键 有线连接 炫酷灯效 功能正常 键盘无拆修 无磕碰，无原包装 低价转让》，价格 ¥9.9，想要/热度 未知"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_4_0",
+        "score": 0.5008,
+        "text_preview": "成色描述要真实：如有轻微使用痕迹，需要主动说明；可支持补充按键细节、背面铭牌、接口和通电照片给买家确认。买家关心验货时，应回复“签收后请先检查外观和基础按键功能"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_1_0",
+        "score": 0.5002,
+        "text_preview": "回复买家时只能陈述已经确认的商品信息，不得凭空承诺键盘一定是机械轴、全新、原厂配件齐全。\n如果尚未确认轴体类型，应明确回复“具体轴体以实物/铭牌为准，可以补图确"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_0_0",
+        "score": 0.5,
+        "text_preview": "商品关键词: 键盘。\n真实竞品共 25 条，价格区间为 ¥9.9 到 ¥85.0，中位价约 ¥20.0，均价约 ¥32.3。\n当前上架建议是走保守实用路线：标题"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_2_0",
+        "score": 0.5,
+        "text_preview": "关于议价，口径要保守：可以接受合理小刀，但不直接承诺大幅降价。\n参考真实竞品价格区间 ¥9.9~¥85.0 和中位价 ¥20.0，若当前报价已接近中位价或低价段"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_5_1",
+        "score": 0.5,
+        "text_preview": "真实竞品热度样本: 标题《全新AOC KM160有线键鼠套装，大量现货批发。全新原装正 品，USB接口，黑色经典款。键盘104键设计，1200 DPI追踪引擎，"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_3_0",
+        "score": 0.5,
+        "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
+      }
+    ],
+    "top1_score": 0.5483167171478271,
+    "recall@5": null,
+    "recall@10": null,
+    "hit@5": null,
+    "hit@10": null,
+    "first_hit_rank@5": null,
+    "first_hit_rank@10": null
+  },
+  {
+    "question": "有驱动软件吗",
+    "category": "negative",
+    "is_negative": true,
+    "expected_ids": [],
+    "retrieved": [
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_1_0",
+        "score": 0.5029,
+        "text_preview": "回复买家时只能陈述已经确认的商品信息，不得凭空承诺键盘一定是机械轴、全新、原厂配件齐全。\n如果尚未确认轴体类型，应明确回复“具体轴体以实物/铭牌为准，可以补图确"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_5_0",
+        "score": 0.5022,
+        "text_preview": "真实竞品低价样本: 标题《长城有线发光游戏键盘104键 有线连接 炫酷灯效 功能正常 键盘无拆修 无磕碰，无原包装 低价转让》，价格 ¥9.9，想要/热度 未知"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_5_1",
+        "score": 0.5017,
+        "text_preview": "真实竞品热度样本: 标题《全新AOC KM160有线键鼠套装，大量现货批发。全新原装正 品，USB接口，黑色经典款。键盘104键设计，1200 DPI追踪引擎，"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_0_0",
+        "score": 0.5011,
+        "text_preview": "商品关键词: 键盘。\n真实竞品共 25 条，价格区间为 ¥9.9 到 ¥85.0，中位价约 ¥20.0，均价约 ¥32.3。\n当前上架建议是走保守实用路线：标题"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_2_0",
+        "score": 0.5,
+        "text_preview": "关于议价，口径要保守：可以接受合理小刀，但不直接承诺大幅降价。\n参考真实竞品价格区间 ¥9.9~¥85.0 和中位价 ¥20.0，若当前报价已接近中位价或低价段"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_4_0",
+        "score": 0.5,
+        "text_preview": "成色描述要真实：如有轻微使用痕迹，需要主动说明；可支持补充按键细节、背面铭牌、接口和通电照片给买家确认。买家关心验货时，应回复“签收后请先检查外观和基础按键功能"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_3_0",
+        "score": 0.5,
+        "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
+      }
+    ],
+    "top1_score": 0.5029141306877136,
+    "recall@5": null,
+    "recall@10": null,
+    "hit@5": null,
+    "hit@10": null,
+    "first_hit_rank@5": null,
+    "first_hit_rank@10": null
+  },
+  {
+    "question": "键盘尺寸多大",
+    "category": "negative",
+    "is_negative": true,
+    "expected_ids": [],
+    "retrieved": [
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_2_0",
+        "score": 0.5261,
+        "text_preview": "关于议价，口径要保守：可以接受合理小刀，但不直接承诺大幅降价。\n参考真实竞品价格区间 ¥9.9~¥85.0 和中位价 ¥20.0，若当前报价已接近中位价或低价段"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_5_0",
+        "score": 0.5132,
+        "text_preview": "真实竞品低价样本: 标题《长城有线发光游戏键盘104键 有线连接 炫酷灯效 功能正常 键盘无拆修 无磕碰，无原包装 低价转让》，价格 ¥9.9，想要/热度 未知"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_5_1",
+        "score": 0.5051,
+        "text_preview": "真实竞品热度样本: 标题《全新AOC KM160有线键鼠套装，大量现货批发。全新原装正 品，USB接口，黑色经典款。键盘104键设计，1200 DPI追踪引擎，"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_1_0",
+        "score": 0.5038,
+        "text_preview": "回复买家时只能陈述已经确认的商品信息，不得凭空承诺键盘一定是机械轴、全新、原厂配件齐全。\n如果尚未确认轴体类型，应明确回复“具体轴体以实物/铭牌为准，可以补图确"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_0_0",
+        "score": 0.5012,
+        "text_preview": "商品关键词: 键盘。\n真实竞品共 25 条，价格区间为 ¥9.9 到 ¥85.0，中位价约 ¥20.0，均价约 ¥32.3。\n当前上架建议是走保守实用路线：标题"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_4_0",
+        "score": 0.5002,
+        "text_preview": "成色描述要真实：如有轻微使用痕迹，需要主动说明；可支持补充按键细节、背面铭牌、接口和通电照片给买家确认。买家关心验货时，应回复“签收后请先检查外观和基础按键功能"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_3_0",
+        "score": 0.5001,
+        "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
+      }
+    ],
+    "top1_score": 0.5260953307151794,
+    "recall@5": null,
+    "recall@10": null,
+    "hit@5": null,
+    "hit@10": null,
+    "first_hit_rank@5": null,
+    "first_hit_rank@10": null
+  },
+  {
+    "question": "支持mac系统吗",
+    "category": "negative",
+    "is_negative": true,
+    "expected_ids": [],
+    "retrieved": [
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_1_0",
+        "score": 0.5009,
+        "text_preview": "回复买家时只能陈述已经确认的商品信息，不得凭空承诺键盘一定是机械轴、全新、原厂配件齐全。\n如果尚未确认轴体类型，应明确回复“具体轴体以实物/铭牌为准，可以补图确"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_5_0",
+        "score": 0.5004,
+        "text_preview": "真实竞品低价样本: 标题《长城有线发光游戏键盘104键 有线连接 炫酷灯效 功能正常 键盘无拆修 无磕碰，无原包装 低价转让》，价格 ¥9.9，想要/热度 未知"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_5_1",
+        "score": 0.5002,
+        "text_preview": "真实竞品热度样本: 标题《全新AOC KM160有线键鼠套装，大量现货批发。全新原装正 品，USB接口，黑色经典款。键盘104键设计，1200 DPI追踪引擎，"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_4_0",
+        "score": 0.5002,
+        "text_preview": "成色描述要真实：如有轻微使用痕迹，需要主动说明；可支持补充按键细节、背面铭牌、接口和通电照片给买家确认。买家关心验货时，应回复“签收后请先检查外观和基础按键功能"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_0_0",
+        "score": 0.5002,
+        "text_preview": "商品关键词: 键盘。\n真实竞品共 25 条，价格区间为 ¥9.9 到 ¥85.0，中位价约 ¥20.0，均价约 ¥32.3。\n当前上架建议是走保守实用路线：标题"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_2_0",
+        "score": 0.5,
+        "text_preview": "关于议价，口径要保守：可以接受合理小刀，但不直接承诺大幅降价。\n参考真实竞品价格区间 ¥9.9~¥85.0 和中位价 ¥20.0，若当前报价已接近中位价或低价段"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_3_0",
+        "score": 0.5,
+        "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
+      }
+    ],
+    "top1_score": 0.5008803606033325,
+    "recall@5": null,
+    "recall@10": null,
+    "hit@5": null,
+    "hit@10": null,
+    "first_hit_rank@5": null,
+    "first_hit_rank@10": null
+  },
+  {
+    "question": "有售后客服电话吗",
+    "category": "negative",
+    "is_negative": true,
+    "expected_ids": [],
+    "retrieved": [
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_5_0",
+        "score": 0.5098,
+        "text_preview": "真实竞品低价样本: 标题《长城有线发光游戏键盘104键 有线连接 炫酷灯效 功能正常 键盘无拆修 无磕碰，无原包装 低价转让》，价格 ¥9.9，想要/热度 未知"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_4_0",
+        "score": 0.5043,
+        "text_preview": "成色描述要真实：如有轻微使用痕迹，需要主动说明；可支持补充按键细节、背面铭牌、接口和通电照片给买家确认。买家关心验货时，应回复“签收后请先检查外观和基础按键功能"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_5_1",
+        "score": 0.5007,
+        "text_preview": "真实竞品热度样本: 标题《全新AOC KM160有线键鼠套装，大量现货批发。全新原装正 品，USB接口，黑色经典款。键盘104键设计，1200 DPI追踪引擎，"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_3_0",
+        "score": 0.5003,
+        "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_1_0",
+        "score": 0.5002,
+        "text_preview": "回复买家时只能陈述已经确认的商品信息，不得凭空承诺键盘一定是机械轴、全新、原厂配件齐全。\n如果尚未确认轴体类型，应明确回复“具体轴体以实物/铭牌为准，可以补图确"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_2_0",
+        "score": 0.5,
+        "text_preview": "关于议价，口径要保守：可以接受合理小刀，但不直接承诺大幅降价。\n参考真实竞品价格区间 ¥9.9~¥85.0 和中位价 ¥20.0，若当前报价已接近中位价或低价段"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_0_0",
+        "score": 0.5,
+        "text_preview": "商品关键词: 键盘。\n真实竞品共 25 条，价格区间为 ¥9.9 到 ¥85.0，中位价约 ¥20.0，均价约 ¥32.3。\n当前上架建议是走保守实用路线：标题"
+      }
+    ],
+    "top1_score": 0.5098223090171814,
+    "recall@5": null,
+    "recall@10": null,
+    "hit@5": null,
+    "hit@10": null,
+    "first_hit_rank@5": null,
+    "first_hit_rank@10": null
+  },
+  {
+    "question": "能换货吗",
+    "category": "negative",
+    "is_negative": true,
+    "expected_ids": [],
+    "retrieved": [
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_3_0",
+        "score": 0.5151,
+        "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_4_0",
+        "score": 0.511,
+        "text_preview": "成色描述要真实：如有轻微使用痕迹，需要主动说明；可支持补充按键细节、背面铭牌、接口和通电照片给买家确认。买家关心验货时，应回复“签收后请先检查外观和基础按键功能"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_2_0",
+        "score": 0.5098,
+        "text_preview": "关于议价，口径要保守：可以接受合理小刀，但不直接承诺大幅降价。\n参考真实竞品价格区间 ¥9.9~¥85.0 和中位价 ¥20.0，若当前报价已接近中位价或低价段"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_5_1",
+        "score": 0.5025,
+        "text_preview": "真实竞品热度样本: 标题《全新AOC KM160有线键鼠套装，大量现货批发。全新原装正 品，USB接口，黑色经典款。键盘104键设计，1200 DPI追踪引擎，"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_1_0",
+        "score": 0.5024,
+        "text_preview": "回复买家时只能陈述已经确认的商品信息，不得凭空承诺键盘一定是机械轴、全新、原厂配件齐全。\n如果尚未确认轴体类型，应明确回复“具体轴体以实物/铭牌为准，可以补图确"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_0_0",
+        "score": 0.5022,
+        "text_preview": "商品关键词: 键盘。\n真实竞品共 25 条，价格区间为 ¥9.9 到 ¥85.0，中位价约 ¥20.0，均价约 ¥32.3。\n当前上架建议是走保守实用路线：标题"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_5_0",
+        "score": 0.5012,
+        "text_preview": "真实竞品低价样本: 标题《长城有线发光游戏键盘104键 有线连接 炫酷灯效 功能正常 键盘无拆修 无磕碰，无原包装 低价转让》，价格 ¥9.9，想要/热度 未知"
+      }
+    ],
+    "top1_score": 0.5150623321533203,
+    "recall@5": null,
+    "recall@10": null,
+    "hit@5": null,
+    "hit@10": null,
+    "first_hit_rank@5": null,
+    "first_hit_rank@10": null
+  },
+  {
+    "question": "保修期内坏了怎么办",
+    "category": "negative",
+    "is_negative": true,
+    "expected_ids": [],
+    "retrieved": [
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_4_0",
+        "score": 0.5078,
+        "text_preview": "成色描述要真实：如有轻微使用痕迹，需要主动说明；可支持补充按键细节、背面铭牌、接口和通电照片给买家确认。买家关心验货时，应回复“签收后请先检查外观和基础按键功能"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_3_0",
+        "score": 0.502,
+        "text_preview": "发货承诺必须保守。标准口径：付款后 24 小时内安排发出，最晚不超过 48 小时；默认会在发货前再次检查基础功能并做好打包保护。若遇到节假日或快递揽收延迟，需要"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_1_0",
+        "score": 0.501,
+        "text_preview": "回复买家时只能陈述已经确认的商品信息，不得凭空承诺键盘一定是机械轴、全新、原厂配件齐全。\n如果尚未确认轴体类型，应明确回复“具体轴体以实物/铭牌为准，可以补图确"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_5_1",
+        "score": 0.5002,
+        "text_preview": "真实竞品热度样本: 标题《全新AOC KM160有线键鼠套装，大量现货批发。全新原装正 品，USB接口，黑色经典款。键盘104键设计，1200 DPI追踪引擎，"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_2_0",
+        "score": 0.5002,
+        "text_preview": "关于议价，口径要保守：可以接受合理小刀，但不直接承诺大幅降价。\n参考真实竞品价格区间 ¥9.9~¥85.0 和中位价 ¥20.0，若当前报价已接近中位价或低价段"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_5_0",
+        "score": 0.5001,
+        "text_preview": "真实竞品低价样本: 标题《长城有线发光游戏键盘104键 有线连接 炫酷灯效 功能正常 键盘无拆修 无磕碰，无原包装 低价转让》，价格 ¥9.9，想要/热度 未知"
+      },
+      {
+        "chunk_id": "xianyu-reply-seed-keyboard_chunk_0_0",
+        "score": 0.5,
+        "text_preview": "商品关键词: 键盘。\n真实竞品共 25 条，价格区间为 ¥9.9 到 ¥85.0，中位价约 ¥20.0，均价约 ¥32.3。\n当前上架建议是走保守实用路线：标题"
+      }
+    ],
+    "top1_score": 0.5078292489051819,
+    "recall@5": null,
+    "recall@10": null,
+    "hit@5": null,
+    "hit@10": null,
+    "first_hit_rank@5": null,
+    "first_hit_rank@10": null
   }
 ]

@@ -59,6 +59,24 @@ def ensure_tables() -> None:
 
         cursor.execute(
             """
+            CREATE TABLE IF NOT EXISTS document_processing_status (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                doc_id TEXT UNIQUE NOT NULL,
+                filename TEXT NOT NULL,
+                status TEXT NOT NULL,
+                progress INTEGER DEFAULT 0,
+                total_blocks INTEGER DEFAULT 0,
+                error_message TEXT,
+                started_at TEXT,
+                completed_at TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (doc_id) REFERENCES documents(doc_id)
+            )
+            """
+        )
+
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS customers (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 customer_id TEXT UNIQUE NOT NULL,
@@ -405,6 +423,12 @@ def _migrate_database(cursor: sqlite3.Cursor) -> None:
                 "created_at": "ALTER TABLE chunks ADD COLUMN created_at TEXT",
                 "business_line": "ALTER TABLE chunks ADD COLUMN business_line TEXT",
                 "priority": "ALTER TABLE chunks ADD COLUMN priority INTEGER DEFAULT 0",
+                # 新增：知识库块结构字段
+                "block_type": "ALTER TABLE chunks ADD COLUMN block_type TEXT",  # title/heading/paragraph/table
+                "page": "ALTER TABLE chunks ADD COLUMN page INTEGER",           # 页码或行号
+                "source_file": "ALTER TABLE chunks ADD COLUMN source_file TEXT",  # 源文件名
+                "section_path": "ALTER TABLE chunks ADD COLUMN section_path TEXT",  # 章节路径
+                "metadata": "ALTER TABLE chunks ADD COLUMN metadata TEXT",      # JSON: 坐标/置信度等
             },
         )
         cursor.execute("UPDATE chunks SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL")

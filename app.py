@@ -47,11 +47,19 @@ def _enforce_single_port() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # 启动时
+    from knowledge.processing_queue import start_processing_queue
+    start_processing_queue()
+
     try:
         yield
     finally:
+        # 关闭时
         shutdown_browser_worker()
         shutdown_goofish_browser_manager()
+
+        from knowledge.processing_queue import stop_processing_queue
+        stop_processing_queue()
 
 
 _enforce_single_port()

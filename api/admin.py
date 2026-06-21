@@ -162,21 +162,33 @@ async def list_knowledge_documents():
     cursor = conn.cursor()
 
     try:
+        # 查询documents表（新入库管线使用的表）
         cursor.execute("""
-            SELECT id, content, source, created_at, metadata
-            FROM knowledge_base
-            ORDER BY created_at DESC
+            SELECT d.doc_id, d.title, d.file_path, d.created_at, d.metadata,
+                   COUNT(c.id) as chunk_count
+            FROM documents d
+            LEFT JOIN chunks c ON d.doc_id = c.doc_id
+            GROUP BY d.doc_id
+            ORDER BY d.created_at DESC
         """)
 
         documents = []
         for row in cursor.fetchall():
-            full_content = row[1]  # 完整内容
+            doc_id, title, file_path, created_at, metadata_str, chunk_count = row
+
+            # 解析metadata
+            try:
+                metadata = json.loads(metadata_str) if metadata_str else {}
+            except:
+                metadata = {}
+
             documents.append({
-                "id": row[0],
-                "content": full_content,  # 返回完整内容，前端自己截断显示
-                "source": row[2],
-                "created_at": row[3],
-                "metadata": row[4]
+                "id": doc_id,
+                "title": title,
+                "source": file_path,  # 兼容前端的source字段
+                "created_at": created_at,
+                "metadata": metadata,
+                "chunks": chunk_count  # 分块数量
             })
 
         return {"documents": documents, "total": len(documents)}
@@ -189,7 +201,8 @@ async def list_knowledge_documents():
 async def upload_knowledge_document(
     file: UploadFile = File(...),
 ):
-    """上传文档到知识库（支持 PDF/Word/Markdown/文本）"""
+    """上传文档到知识库（异步处理，支持 PDF/Word/Markdown）"""
+    from knowledge.processing_queue import get_processing_queue
 
     # 验证文件扩展名
     file_ext = os.path.splitext(file.filename)[1].lower()
@@ -215,73 +228,26 @@ async def upload_knowledge_document(
         tmp_path = tmp_file.name
 
     try:
-        # 解析文档
-        loader = DocumentLoader()
-        text = loader.load_document(tmp_path, file_ext.lstrip('.'))
+        # 提交异步处理任务
+        queue = get_processing_queue()
+        doc_id = queue.submit_task(
+            file_path=tmp_path,
+            filename=file.filename,
+            file_type=file_ext.lstrip('.')
+        )
 
-        if not text or len(text.strip()) < 10:
-            raise HTTPException(status_code=400, detail="文档内容为空或过短")
-
-        # 分块
-        chunker = SimpleChunker(chunk_size=500, overlap=50)
-        chunks = chunker.chunk_text(text)
-
-        if not chunks:
-            raise HTTPException(status_code=400, detail="文档分块失败")
-
-        # 保存到数据库
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        try:
-            # 1. 插入原始文档到 knowledge_base
-            cursor.execute("""
-                INSERT INTO knowledge_base (content, source, created_at)
-                VALUES (?, ?, ?)
-            """, (text, file.filename, datetime.now().isoformat()))
-
-            # 2. 获取文档 ID
-            doc_id = cursor.lastrowid
-
-            # 3. 插入分块到 chunks 表（如果存在）
-            try:
-                for idx, chunk in enumerate(chunks):
-                    cursor.execute("""
-                        INSERT INTO chunks (chunk_id, doc_id, chunk_index, text)
-                        VALUES (?, ?, ?, ?)
-                    """, (f"{doc_id}_chunk_{idx}", str(doc_id), idx, chunk))
-            except Exception as e:
-                # 如果 chunks 表不存在，忽略（只保存到 knowledge_base）
-                pass
-
-            conn.commit()
-
-            return {
-                "status": "success",
-                "document_id": doc_id,
-                "filename": file.filename,
-                "chunks": len(chunks),
-                "total_chars": len(text),
-                "message": f"文档已导入，生成 {len(chunks)} 个分块"
-            }
-
-        except Exception as e:
-            conn.rollback()
-            raise HTTPException(status_code=500, detail=f"保存失败: {str(e)}")
-
-        finally:
-            conn.close()
-
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        return {
+            "status": "queued",
+            "doc_id": doc_id,
+            "filename": file.filename,
+            "message": f"文档已加入处理队列，doc_id: {doc_id}"
+        }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"解析失败: {str(e)}")
-
-    finally:
         # 清理临时文件
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
+        raise HTTPException(status_code=500, detail=f"提交任务失败: {str(e)}")
 
 
 class DocumentUpload(BaseModel):
@@ -325,6 +291,33 @@ async def upload_text_document(
 
     finally:
         conn.close()
+
+
+@router.get("/knowledge/processing-status/{doc_id}")
+async def get_processing_status(doc_id: str):
+    """查询文档处理状态"""
+    from knowledge.processing_queue import get_processing_queue
+
+    queue = get_processing_queue()
+    status = queue.get_status(doc_id)
+
+    if status["status"] == "not_found":
+        raise HTTPException(status_code=404, detail="文档不存在")
+
+    return status
+
+
+@router.post("/knowledge/reprocess/{doc_id}")
+async def reprocess_document(doc_id: str):
+    """重新处理已有文档（用于旧文档升级）"""
+    from knowledge.document_processor import DocumentProcessor
+
+    try:
+        processor = DocumentProcessor()
+        result = processor.reprocess_document(doc_id)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"重新处理失败: {str(e)}")
 
 
 @router.delete("/knowledge/{doc_id}")

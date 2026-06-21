@@ -834,20 +834,26 @@
             try {
                 const data = await apiCall('/api/admin/dashboard');
 
-                // 更新统计卡片
-                document.getElementById('statConversations').textContent = formatNumber(data.conversations.total);
-                document.getElementById('statMessages').textContent = formatNumber(data.conversations.total_messages);
+                // 安全更新统计卡片（带null检查）
+                const updateElement = (id, value) => {
+                    const el = document.getElementById(id);
+                    if (el) el.textContent = value;
+                    else console.warn(`元素不存在: ${id}`);
+                };
+
+                updateElement('statConversations', formatNumber(data.conversations.total));
+                updateElement('statMessages', formatNumber(data.conversations.total_messages));
 
                 // 知识库命中率
                 const hitRate = data.kb_hit_rate.overall_rate;
-                document.getElementById('statKBHitRate').textContent = hitRate !== null ? `${hitRate}%` : '暂无数据';
-                document.getElementById('statHits').textContent = formatNumber(data.kb_hit_rate.total_hits);
-                document.getElementById('statTotal').textContent = formatNumber(data.kb_hit_rate.total_requests);
+                updateElement('statKBHitRate', hitRate !== null ? `${hitRate}%` : '暂无数据');
+                updateElement('statHits', formatNumber(data.kb_hit_rate.total_hits));
+                updateElement('statTotal', formatNumber(data.kb_hit_rate.total_requests));
 
-                document.getElementById('statDuration').textContent = (data.performance.avg_latency_ms || 0).toFixed(0);
-                document.getElementById('statKB').textContent = formatNumber(data.knowledge_base.total_documents);
+                updateElement('statDuration', (data.performance.avg_latency_ms || 0).toFixed(0));
+                updateElement('statKB', formatNumber(data.knowledge_base.total_documents));
 
-                // 渲染 Agent 调用图表
+                // 渲染 Agent 调用图表（内部已有null检查）
                 renderAgentChart(data.agents);
             } catch (error) {
                 console.error('加载仪表盘失败:', error);
@@ -856,6 +862,13 @@
 
         function renderAgentChart(agents) {
             const ctx = document.getElementById('agentChart');
+
+            // 防护：如果元素不存在（页面不在概览tab），跳过渲染
+            if (!ctx) {
+                console.warn('agentChart 元素不存在，跳过渲染');
+                return;
+            }
+
             if (charts.agent) charts.agent.destroy();
 
             if (!agents || agents.length === 0) {
@@ -923,15 +936,19 @@
                 list.innerHTML = data.documents.map(doc => `
                     <div class="p-6 hover:bg-slate-50 transition">
                         <div class="flex items-start justify-between">
-                            <div class="flex-1 cursor-pointer" onclick="showDocumentDetail(${doc.id})">
+                            <div class="flex-1 cursor-pointer" onclick="showDocumentDetail('${doc.id}')">
                                 <div class="flex items-center gap-3 mb-2">
-                                    <span class="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded">#${doc.id}</span>
-                                    <span class="font-medium text-slate-900">${doc.source}</span>
+                                    <span class="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded">
+                                        ${doc.chunks} 个分块
+                                    </span>
+                                    <span class="font-medium text-slate-900">${doc.title || doc.source}</span>
                                 </div>
-                                <p class="text-sm text-slate-600 mb-2 line-clamp-2">${doc.content}</p>
+                                <p class="text-sm text-slate-600 mb-2">
+                                    来源: ${doc.source}
+                                </p>
                                 <p class="text-xs text-slate-400">${formatDateTime(doc.created_at)}</p>
                             </div>
-                            <button onclick="deleteDocument(${doc.id})"
+                            <button onclick="deleteDocument('${doc.id}')"
                                 class="ml-4 p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition">
                                 <i data-lucide="trash-2" class="w-4 h-4"></i>
                             </button>
@@ -1028,9 +1045,20 @@
                     }
 
                     const result = await response.json();
-                    showToast(`已导入 ${result.chunks} 个分块`);
-                    closeUploadModal();
-                    loadKnowledge();
+
+                    // 异步处理：显示提示并开始轮询状态
+                    if (result.status === 'queued') {
+                        showToast(`文档已提交处理: ${result.filename}`);
+                        closeUploadModal();
+
+                        // 开始轮询处理状态
+                        pollProcessingStatus(result.doc_id, result.filename);
+                    } else {
+                        // 兼容旧API（同步处理）
+                        showToast(`已导入 ${result.chunks || 0} 个分块`);
+                        closeUploadModal();
+                        loadKnowledge();
+                    }
                 } catch (error) {
                     showToast(`上传失败: ${error.message}`, 'error');
                     document.getElementById('uploadProgress').classList.add('hidden');
@@ -1054,6 +1082,51 @@
             } else {
                 showToast('请选择文件或填写完整文本信息', 'error');
             }
+        }
+
+        // ========== 文档处理状态轮询 ==========
+        async function pollProcessingStatus(docId, filename) {
+            let pollCount = 0;
+            const maxPolls = 60; // 最多轮询60次（2分钟）
+
+            const intervalId = setInterval(async () => {
+                try {
+                    pollCount++;
+
+                    const response = await fetch(`/api/admin/knowledge/processing-status/${docId}`, {
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('admin_token')}` }
+                    });
+
+                    if (!response.ok) {
+                        clearInterval(intervalId);
+                        showToast('查询处理状态失败', 'error');
+                        loadKnowledge();
+                        return;
+                    }
+
+                    const status = await response.json();
+
+                    if (status.status === 'completed') {
+                        clearInterval(intervalId);
+                        showToast(`✓ ${filename} 处理完成 (${status.total_blocks} 个块)`);
+                        loadKnowledge();
+                    } else if (status.status === 'failed') {
+                        clearInterval(intervalId);
+                        showToast(`✗ ${filename} 处理失败: ${status.error_message}`, 'error');
+                        loadKnowledge();
+                    } else if (status.status === 'processing') {
+                        console.log(`处理中: ${status.progress}/${status.total_blocks}`);
+                    } else if (pollCount >= maxPolls) {
+                        clearInterval(intervalId);
+                        showToast('处理超时，请稍后刷新查看', 'error');
+                        loadKnowledge();
+                    }
+                } catch (error) {
+                    clearInterval(intervalId);
+                    console.error('轮询状态失败:', error);
+                    loadKnowledge();
+                }
+            }, 2000); // 每2秒轮询一次
         }
 
         async function deleteDocument(id) {

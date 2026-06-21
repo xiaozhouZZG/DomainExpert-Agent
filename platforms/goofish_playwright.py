@@ -525,16 +525,45 @@ class GoofishPlaywrightPlatform:
                 if target:
                     logger.info(f"send_reply: 自动选择会话 target='{target}'")
 
-                    # 导航到 IM 列表（如果不在）
-                    if "goofish.com/im" not in current_url:
-                        logger.info("send_reply: 导航到 IM 页面")
-                        page.goto("https://goofish.com/im", wait_until="domcontentloaded", timeout=30000)
-                        time.sleep(2)
+                    # 优先：复用现有页面，检查是否已有会话列表
+                    conversation_items = page.locator('[class*="conversation-item"]').all()
+                    logger.info(f"send_reply: 当前页面找到 {len(conversation_items)} 个会话项")
+
+                    # 如果没有会话列表，需要导航到 IM 页面
+                    if len(conversation_items) == 0:
+                        logger.info("send_reply: 需要导航到 IM 页面")
+
+                        # 使用带 www 的同域 URL，避免 301 重定向
+                        try:
+                            # wait_until="commit" 不等整页加载
+                            page.goto("https://www.goofish.com/im", wait_until="commit", timeout=10000)
+                            logger.info("send_reply: goto 完成，等待会话列表出现")
+                        except Exception as e:
+                            # goto 失败不崩溃，降级为继续轮询
+                            logger.warning(f"send_reply: goto 失败，降级为轮询等待: {e}")
+
+                        # 轮询等待会话列表出现（最多 15 秒）
+                        max_wait = 15
+                        poll_interval = 0.5
+                        elapsed = 0
+
+                        while elapsed < max_wait:
+                            conversation_items = page.locator('[class*="conversation-item"]').all()
+                            if len(conversation_items) > 0:
+                                logger.info(f"send_reply: ✓ 会话列表已出现，找到 {len(conversation_items)} 项")
+                                break
+
+                            time.sleep(poll_interval)
+                            elapsed += poll_interval
+
+                        # 超时仍未找到会话列表
+                        if len(conversation_items) == 0:
+                            result["status"] = "failed"
+                            result["detail"] = f"Conversation list not loaded after {max_wait}s"
+                            logger.error("send_reply failed: conversation list timeout")
+                            return result
 
                     # 查找匹配 target 的会话项
-                    conversation_items = page.locator('[class*="conversation-item"]').all()
-                    logger.info(f"send_reply: 找到 {len(conversation_items)} 个会话项")
-
                     target_found = False
                     for item in conversation_items:
                         try:

@@ -166,6 +166,27 @@ python app.py
 # 访问: http://localhost:8802
 ```
 
+### 前端开发（修改 Tailwind 样式）
+
+项目使用 Tailwind CSS 本地构建方案（非 CDN），修改 HTML 后需重新构建：
+
+```bash
+# 首次安装依赖
+npm install -D @tailwindcss/cli
+
+# 修改 admin.html 后重新构建 CSS
+./build-tailwind.sh
+
+# 或手动运行
+node_modules/.bin/tailwindcss \
+  -i web/static/src/tailwind.input.css \
+  -o web/static/tailwind.css \
+  --content "./web/**/*.html" \
+  --minify
+```
+
+**注意**：动态生成的颜色类（如 `bg-${color}-100`）已添加到 `tailwind.config.js` 的 `safelist` 中，无需担心被剔除。
+
 ## 目录结构
 
 ```

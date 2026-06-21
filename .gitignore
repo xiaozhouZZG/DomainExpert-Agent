@@ -77,3 +77,7 @@ uploads/
 data/*.db
 data/*.sqlite
 data/browser_state/
+
+# Node.js (前端构建工具)
+node_modules/
+package-lock.json

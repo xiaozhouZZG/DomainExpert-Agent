@@ -322,21 +322,47 @@ async def reprocess_document(doc_id: str):
 
 @router.delete("/knowledge/{doc_id}")
 async def delete_knowledge_document(
-    doc_id: int,
+    doc_id: str,
 ):
-    """删除知识库文档"""
+    """删除知识库文档（UUID字符串）"""
 
     conn = get_db_connection()
     cursor = conn.cursor()
 
     try:
-        cursor.execute("DELETE FROM knowledge_base WHERE id = ?", (doc_id,))
+        # 先检查文档是否存在
+        cursor.execute("SELECT doc_id FROM documents WHERE doc_id = ?", (doc_id,))
+        if cursor.fetchone() is None:
+            raise HTTPException(status_code=404, detail=f"文档不存在: {doc_id}")
+
+        # 级联删除：按外键依赖顺序 - 先删子表，后删父表
+        # 1. 删除处理状态（引用documents的外键）
+        cursor.execute("DELETE FROM document_processing_status WHERE doc_id = ?", (doc_id,))
+
+        # 2. 删除chunks（引用documents的外键）
+        cursor.execute("DELETE FROM chunks WHERE doc_id = ?", (doc_id,))
+        chunks_deleted = cursor.rowcount
+
+        # 3. 最后删除documents（父表）
+        cursor.execute("DELETE FROM documents WHERE doc_id = ?", (doc_id,))
+        docs_deleted = cursor.rowcount
+
         conn.commit()
 
-        if cursor.rowcount == 0:
-            raise HTTPException(status_code=404, detail="文档不存在")
+        return {
+            "status": "success",
+            "message": f"文档已删除 (documents: {docs_deleted}, chunks: {chunks_deleted})",
+            "deleted": {
+                "documents": docs_deleted,
+                "chunks": chunks_deleted
+            }
+        }
 
-        return {"status": "success", "message": "文档已删除"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"删除失败: {str(e)}")
 
     finally:
         conn.close()

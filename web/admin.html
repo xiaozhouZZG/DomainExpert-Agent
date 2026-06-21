@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>后台管理 - EnterpriseAgent</title>
 
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com?v=4"></script>
+    <!-- Tailwind CSS 本地静态构建（生产规范，支持离线） -->
+    <link rel="stylesheet" href="/static/tailwind.css?v=1">
 
     <!-- Chart.js 本地静态资源，避免浏览器第三方跟踪拦截 -->
     <script src="/static/vendor/chart.umd.min.js?v=1"></script>
@@ -381,7 +381,7 @@
                                 <p class="text-sm text-slate-600 mt-1">最近50条API请求记录</p>
                             </div>
                             <button onclick="loadLogs()" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">
-                                <i data-lucide="refresh-cw" class="w-4 h-4 inline"></i> 刷新
+                                <i data-lucide="rotate-cw" class="w-4 h-4 inline"></i> 刷新
                             </button>
                         </div>
                         <div id="logsContainer" class="divide-y divide-slate-100"></div>
@@ -841,22 +841,23 @@
                     else console.warn(`元素不存在: ${id}`);
                 };
 
-                updateElement('statConversations', formatNumber(data.conversations.total));
-                updateElement('statMessages', formatNumber(data.conversations.total_messages));
+                updateElement('statConversations', formatNumber(data?.conversations?.total ?? 0));
+                updateElement('statMessages', formatNumber(data?.conversations?.total_messages ?? 0));
 
                 // 知识库命中率
-                const hitRate = data.kb_hit_rate.overall_rate;
-                updateElement('statKBHitRate', hitRate !== null ? `${hitRate}%` : '暂无数据');
-                updateElement('statHits', formatNumber(data.kb_hit_rate.total_hits));
-                updateElement('statTotal', formatNumber(data.kb_hit_rate.total_requests));
+                const hitRate = data?.kb_hit_rate?.overall_rate;
+                updateElement('statKBHitRate', hitRate !== null && hitRate !== undefined ? `${hitRate}%` : '暂无数据');
+                updateElement('statHits', formatNumber(data?.kb_hit_rate?.total_hits ?? 0));
+                updateElement('statTotal', formatNumber(data?.kb_hit_rate?.total_requests ?? 0));
 
-                updateElement('statDuration', (data.performance.avg_latency_ms || 0).toFixed(0));
-                updateElement('statKB', formatNumber(data.knowledge_base.total_documents));
+                updateElement('statDuration', (data?.performance?.avg_latency_ms || 0).toFixed(0));
+                updateElement('statKB', formatNumber(data?.knowledge_base?.total_documents ?? 0));
 
                 // 渲染 Agent 调用图表（内部已有null检查）
-                renderAgentChart(data.agents);
+                renderAgentChart(data?.agents ?? []);
             } catch (error) {
                 console.error('加载仪表盘失败:', error);
+                showToast('加载仪表盘失败', 'error');
             }
         }
 
@@ -915,9 +916,12 @@
                 const empty = document.getElementById('kbEmpty');
                 const header = document.getElementById('kbHeader');
 
-                document.getElementById('kbTotal').textContent = data.total;
+                const totalEl = document.getElementById('kbTotal');
+                if (totalEl) totalEl.textContent = data?.total ?? 0;
 
-                if (data.documents.length === 0) {
+                const documents = data?.documents ?? [];
+
+                if (documents.length === 0) {
                     list.innerHTML = '';
                     header.classList.add('hidden');
                     empty.classList.remove('hidden');
@@ -929,36 +933,48 @@
 
                 // 存储文档数据供详情查看使用
                 window.documentsData = {};
-                data.documents.forEach(doc => {
+                documents.forEach(doc => {
                     window.documentsData[doc.id] = doc;
                 });
 
-                list.innerHTML = data.documents.map(doc => `
-                    <div class="p-6 hover:bg-slate-50 transition">
-                        <div class="flex items-start justify-between">
-                            <div class="flex-1 cursor-pointer" onclick="showDocumentDetail('${doc.id}')">
-                                <div class="flex items-center gap-3 mb-2">
-                                    <span class="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded">
-                                        ${doc.chunks} 个分块
-                                    </span>
-                                    <span class="font-medium text-slate-900">${doc.title || doc.source}</span>
+                list.innerHTML = documents.map(doc => {
+                    // 确定状态
+                    const chunks = doc?.chunks ?? 0;
+                    const status = chunks > 0 ? '已入库' : (chunks === 0 ? '处理失败' : '处理中');
+                    const statusColor = chunks > 0 ? 'bg-green-100 text-green-700' :
+                                       (chunks === 0 ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700');
+
+                    return `
+                        <div class="p-6 hover:bg-slate-50 transition">
+                            <div class="flex items-start justify-between">
+                                <div class="flex-1 cursor-pointer" onclick="showDocumentDetail('${escapeHtml(doc?.id ?? '')}')">
+                                    <div class="flex items-center gap-3 mb-2">
+                                        <span class="px-2 py-1 ${statusColor} text-xs font-medium rounded">
+                                            ${status}
+                                        </span>
+                                        <span class="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded">
+                                            ${chunks} 个分块
+                                        </span>
+                                        <span class="font-medium text-slate-900">${escapeHtml(doc?.title || doc?.source || '未命名')}</span>
+                                    </div>
+                                    <p class="text-sm text-slate-600 mb-2">
+                                        来源: ${escapeHtml(doc?.source ?? '-')}
+                                    </p>
+                                    <p class="text-xs text-slate-400">${formatDateTime(doc?.created_at)}</p>
                                 </div>
-                                <p class="text-sm text-slate-600 mb-2">
-                                    来源: ${doc.source}
-                                </p>
-                                <p class="text-xs text-slate-400">${formatDateTime(doc.created_at)}</p>
+                                <button onclick="deleteDocument('${escapeHtml(doc?.id ?? '')}')"
+                                    class="ml-4 p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
                             </div>
-                            <button onclick="deleteDocument('${doc.id}')"
-                                class="ml-4 p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition">
-                                <i data-lucide="trash-2" class="w-4 h-4"></i>
-                            </button>
                         </div>
-                    </div>
-                `).join('');
+                    `;
+                }).join('');
 
                 lucide.createIcons();
             } catch (error) {
                 console.error('加载知识库失败:', error);
+                showToast('加载知识库失败', 'error');
             }
         }
 
@@ -1094,7 +1110,7 @@
                     pollCount++;
 
                     const response = await fetch(`/api/admin/knowledge/processing-status/${docId}`, {
-                        headers: { 'Authorization': `Bearer ${localStorage.getItem('admin_token')}` }
+                        headers: { 'Authorization': `Bearer ${token}` }  // 使用全局token变量
                     });
 
                     if (!response.ok) {
@@ -1149,7 +1165,9 @@
                 const list = document.getElementById('convList');
                 const empty = document.getElementById('convEmpty');
 
-                if (data.conversations.length === 0) {
+                const conversations = data?.conversations ?? [];
+
+                if (conversations.length === 0) {
                     list.innerHTML = '';
                     empty.classList.remove('hidden');
                     return;
@@ -1159,16 +1177,17 @@
 
                 // 按 session_id 分组对话
                 const sessionMap = new Map();
-                data.conversations.forEach(conv => {
-                    if (!sessionMap.has(conv.session_id)) {
-                        sessionMap.set(conv.session_id, []);
+                conversations.forEach(conv => {
+                    const sessionId = conv?.session_id ?? 'unknown';
+                    if (!sessionMap.has(sessionId)) {
+                        sessionMap.set(sessionId, []);
                     }
-                    sessionMap.get(conv.session_id).push(conv);
+                    sessionMap.get(sessionId).push(conv);
                 });
 
                 // 渲染每个会话
                 list.innerHTML = Array.from(sessionMap.entries()).map(([sessionId, convs]) => {
-                    const firstConv = convs[0];
+                    const firstConv = convs[0] ?? {};
                     return `
                         <div class="p-6 hover:bg-slate-50">
                             <div class="flex items-start gap-4">
@@ -1177,15 +1196,15 @@
                                 </div>
                                 <div class="flex-1 min-w-0">
                                     <div class="flex items-center gap-2 mb-2">
-                                        <span class="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs font-medium rounded">${firstConv.role}</span>
-                                        <span class="text-xs text-slate-500">${sessionId}</span>
-                                        ${firstConv.engine ? `<span class="text-xs text-slate-400">· ${firstConv.engine}</span>` : ''}
+                                        <span class="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs font-medium rounded">${escapeHtml(firstConv?.role ?? 'unknown')}</span>
+                                        <span class="text-xs text-slate-500">${escapeHtml(sessionId)}</span>
+                                        ${firstConv.engine ? `<span class="text-xs text-slate-400">· ${escapeHtml(firstConv.engine)}</span>` : ''}
                                         <span class="text-xs text-slate-400">· ${convs.length} 条消息</span>
                                     </div>
-                                    <p class="text-sm text-slate-700 line-clamp-2 mb-1">${firstConv.content}</p>
-                                    <p class="text-xs text-slate-400">${formatDateTime(firstConv.created_at)}</p>
+                                    <p class="text-sm text-slate-700 line-clamp-2 mb-1">${escapeHtml(firstConv?.content ?? '')}</p>
+                                    <p class="text-xs text-slate-400">${formatDateTime(firstConv?.created_at)}</p>
                                 </div>
-                                <button onclick="deleteConversation('${sessionId}')"
+                                <button onclick="deleteConversation('${escapeHtml(sessionId)}')"
                                     class="ml-4 p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
                                     title="删除此会话">
                                     <i data-lucide="trash-2" class="w-4 h-4"></i>
@@ -1198,6 +1217,7 @@
                 lucide.createIcons();
             } catch (error) {
                 console.error('加载对话记录失败:', error);
+                showToast('加载对话记录失败', 'error');
             }
         }
 
@@ -1210,10 +1230,61 @@
 
             try {
                 const data = await apiCall(`/api/admin/conversations?session_id=${sessionId}`);
-                // 同样的渲染逻辑...
+                const list = document.getElementById('convList');
+                const empty = document.getElementById('convEmpty');
+
+                if (!data.conversations || data.conversations.length === 0) {
+                    list.innerHTML = '';
+                    empty.classList.remove('hidden');
+                    showToast('未找到匹配的会话', 'info');
+                    return;
+                }
+
+                empty.classList.add('hidden');
+
+                // 按 session_id 分组对话（复用loadConversations的渲染逻辑）
+                const sessionMap = new Map();
+                data.conversations.forEach(conv => {
+                    if (!sessionMap.has(conv.session_id)) {
+                        sessionMap.set(conv.session_id, []);
+                    }
+                    sessionMap.get(conv.session_id).push(conv);
+                });
+
+                // 渲染搜索结果
+                list.innerHTML = Array.from(sessionMap.entries()).map(([sid, convs]) => {
+                    const firstConv = convs[0];
+                    return `
+                        <div class="p-6 hover:bg-slate-50">
+                            <div class="flex items-start gap-4">
+                                <div class="flex-shrink-0 w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center">
+                                    <i data-lucide="${firstConv.role === 'user' ? 'user' : 'bot'}" class="w-5 h-5 text-slate-600"></i>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <span class="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs font-medium rounded">${firstConv.role}</span>
+                                        <span class="text-xs text-slate-500">${sid}</span>
+                                        ${firstConv.engine ? `<span class="text-xs text-slate-400">· ${firstConv.engine}</span>` : ''}
+                                        <span class="text-xs text-slate-400">· ${convs.length} 条消息</span>
+                                    </div>
+                                    <p class="text-sm text-slate-700 line-clamp-2 mb-1">${firstConv.content}</p>
+                                    <p class="text-xs text-slate-400">${formatDateTime(firstConv.created_at)}</p>
+                                </div>
+                                <button onclick="deleteConversation('${sid}')"
+                                    class="ml-4 p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                                    title="删除此会话">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                lucide.createIcons();
                 showToast(`找到 ${data.conversations.length} 条记录`, 'info');
             } catch (error) {
                 console.error('搜索失败:', error);
+                showToast('搜索失败', 'error');
             }
         }
 
@@ -1238,6 +1309,11 @@
                 const data = await apiCall('/api/admin/system/status');
                 const container = document.getElementById('systemStatus');
 
+                if (!container) {
+                    console.warn('systemStatus容器不存在');
+                    return;
+                }
+
                 container.innerHTML = `
                     <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
                         <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
@@ -1248,7 +1324,7 @@
                             <div class="flex justify-between">
                                 <span class="text-slate-600">编排引擎</span>
                                 <span class="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded">
-                                    ${data.engine.name}
+                                    ${escapeHtml(data?.engine?.name ?? '未知')}
                                 </span>
                             </div>
                         </div>
@@ -1262,24 +1338,24 @@
                         <div class="space-y-3">
                             <div class="flex justify-between">
                                 <span class="text-slate-600">厂商</span>
-                                <span class="font-medium">${data.llm.provider || '未配置'}</span>
+                                <span class="font-medium">${escapeHtml(data?.llm?.provider || '未配置')}</span>
                             </div>
                             <div class="flex justify-between">
                                 <span class="text-slate-600">协议</span>
-                                <span class="font-medium">${data.llm.protocol || 'openai'}</span>
+                                <span class="font-medium">${escapeHtml(data?.llm?.protocol || 'openai')}</span>
                             </div>
                             <div class="flex justify-between">
                                 <span class="text-slate-600">模型</span>
-                                <span class="font-medium">${data.llm.model || '未配置'}</span>
+                                <span class="font-medium">${escapeHtml(data?.llm?.model || '未配置')}</span>
                             </div>
                             <div class="flex justify-between">
                                 <span class="text-slate-600">API Key</span>
-                                <span class="px-2 py-1 ${data.llm.has_api_key ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'} text-xs font-medium rounded">
-                                    ${data.llm.has_api_key ? '已配置' : '未配置'}
+                                <span class="px-2 py-1 ${data?.llm?.has_api_key ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'} text-xs font-medium rounded">
+                                    ${data?.llm?.has_api_key ? '已配置' : '未配置'}
                                 </span>
                             </div>
                         </div>
-                        ${!data.llm.has_api_key ? `
+                        ${!data?.llm?.has_api_key ? `
                         <div class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                             <p class="text-xs text-red-900"><strong>警告：</strong>未配置 API Key，真实 LLM 草稿功能不可用</p>
                             <p class="text-xs text-red-800 mt-1">❌ 无法使用真实 LLM 生成回复</p>
@@ -1288,7 +1364,7 @@
                         ` : `
                         <div class="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
                             <p class="text-xs text-green-900">✅ LLM 已配置，可以使用真实模型生成回复</p>
-                            <p class="text-xs text-green-800 mt-1">Base URL: ${data.llm.base_url}</p>
+                            <p class="text-xs text-green-800 mt-1">Base URL: ${escapeHtml(data?.llm?.base_url ?? '')}</p>
                         </div>
                         `}
                     </div>
@@ -1297,6 +1373,7 @@
                 lucide.createIcons();
             } catch (error) {
                 console.error('加载系统状态失败:', error);
+                showToast('加载系统状态失败', 'error');
             }
         }
 
@@ -1319,31 +1396,39 @@
                 const data = await apiCall('/api/admin/logs?limit=50');
                 const container = document.getElementById('logsContainer');
 
-                if (data.logs.length === 0) {
+                if (!container) {
+                    console.warn('logsContainer容器不存在');
+                    return;
+                }
+
+                const logs = data?.logs ?? [];
+
+                if (logs.length === 0) {
                     container.innerHTML = '<div class="p-6 text-center text-slate-500">暂无日志记录</div>';
                     return;
                 }
 
-                container.innerHTML = data.logs.map(log => {
-                    const statusColor = log.status >= 200 && log.status < 300 ? 'text-green-600' :
-                                       log.status >= 400 ? 'text-red-600' : 'text-slate-600';
-                    const time = new Date(log.timestamp).toLocaleString('zh-CN', {hour12: false});
+                container.innerHTML = logs.map(log => {
+                    const status = log?.status ?? 0;
+                    const statusColor = status >= 200 && status < 300 ? 'text-green-600' :
+                                       status >= 400 ? 'text-red-600' : 'text-slate-600';
+                    const time = log?.timestamp ? new Date(log.timestamp).toLocaleString('zh-CN', {hour12: false}) : '-';
 
                     return `
                     <div class="p-4 hover:bg-slate-50 transition">
                         <div class="flex items-start justify-between gap-4">
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-2 mb-1">
-                                    <span class="px-2 py-0.5 ${statusColor} bg-slate-100 text-xs font-mono rounded">${log.method}</span>
-                                    <span class="text-sm font-medium text-slate-900 truncate">${log.path}</span>
+                                    <span class="px-2 py-0.5 ${statusColor} bg-slate-100 text-xs font-mono rounded">${escapeHtml(log?.method ?? '?')}</span>
+                                    <span class="text-sm font-medium text-slate-900 truncate">${escapeHtml(log?.path ?? '?')}</span>
                                 </div>
                                 <div class="flex items-center gap-4 text-xs text-slate-500">
-                                    <span>ID: ${log.request_id}</span>
+                                    <span>ID: ${escapeHtml(log?.request_id ?? '?')}</span>
                                     <span>${time}</span>
-                                    <span class="${statusColor} font-medium">状态: ${log.status || '?'}</span>
-                                    <span>耗时: ${log.duration_ms || '?'}ms</span>
+                                    <span class="${statusColor} font-medium">状态: ${status || '?'}</span>
+                                    <span>耗时: ${log?.duration_ms ?? '?'}ms</span>
                                 </div>
-                                ${log.error ? `<div class="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded">${log.error}</div>` : ''}
+                                ${log?.error ? `<div class="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded">${escapeHtml(log.error)}</div>` : ''}
                             </div>
                         </div>
                     </div>
@@ -1353,6 +1438,7 @@
                 lucide.createIcons();
             } catch (error) {
                 console.error('加载日志失败:', error);
+                showToast('加载日志失败', 'error');
             }
         }
 
@@ -1411,24 +1497,36 @@
             try {
                 const config = await apiCall('/api/admin/llm-config');
 
-                // 填充表单
-                document.getElementById('modelProvider').value = config.provider || 'custom';
-                document.getElementById('modelBaseUrl').value = config.base_url || '';
-                document.getElementById('modelProtocol').value = config.protocol || 'openai';
-                document.getElementById('modelApiKey').value = ''; // 不回显明文密码
+                // 安全填充表单（带null检查）
+                const providerEl = document.getElementById('modelProvider');
+                const baseUrlEl = document.getElementById('modelBaseUrl');
+                const protocolEl = document.getElementById('modelProtocol');
+                const apiKeyEl = document.getElementById('modelApiKey');
+
+                if (providerEl) providerEl.value = config?.provider || 'custom';
+                if (baseUrlEl) baseUrlEl.value = config?.base_url || '';
+                if (protocolEl) protocolEl.value = config?.protocol || 'openai';
+                if (apiKeyEl) apiKeyEl.value = ''; // 不回显明文密码
 
                 // 如果有模型配置，添加到下拉列表
-                if (config.model) {
+                if (config?.model) {
                     const modelSelect = document.getElementById('modelName');
-                    modelSelect.innerHTML = `<option value="${config.model}">${config.model}</option>`;
-                    modelSelect.value = config.model;
+                    if (modelSelect) {
+                        modelSelect.innerHTML = `<option value="${escapeHtml(config.model)}">${escapeHtml(config.model)}</option>`;
+                        modelSelect.value = config.model;
+                    }
                 }
 
-                // 更新当前配置显示
-                document.getElementById('currentProvider').textContent = providerPresets[config.provider]?.name || '自定义';
-                document.getElementById('currentBaseUrl').textContent = config.base_url || '-';
-                document.getElementById('currentApiKey').textContent = config.has_api_key ? config.api_key_masked : '未配置';
-                document.getElementById('currentModel').textContent = config.model || '-';
+                // 更新当前配置显示（带null检查）
+                const updateDisplay = (id, value) => {
+                    const el = document.getElementById(id);
+                    if (el) el.textContent = value;
+                };
+
+                updateDisplay('currentProvider', providerPresets[config?.provider]?.name || '自定义');
+                updateDisplay('currentBaseUrl', config?.base_url || '-');
+                updateDisplay('currentApiKey', config?.has_api_key ? config.api_key_masked : '未配置');
+                updateDisplay('currentModel', config?.model || '-');
 
             } catch (error) {
                 console.error('加载配置失败:', error);
@@ -1574,7 +1672,9 @@
                 const list = document.getElementById('tracesList');
                 const empty = document.getElementById('tracesEmpty');
 
-                if (data.traces.length === 0) {
+                const traces = data?.traces ?? [];
+
+                if (traces.length === 0) {
                     list.innerHTML = '';
                     empty.classList.remove('hidden');
                     return;
@@ -1582,32 +1682,33 @@
 
                 empty.classList.add('hidden');
 
-                list.innerHTML = data.traces.map(trace => {
+                list.innerHTML = traces.map(trace => {
                     const engineColors = {
                         'langgraph': 'bg-green-100 text-green-700',
                         'handoff': 'bg-orange-100 text-orange-700',
                         'error': 'bg-red-100 text-red-700'
                     };
-                    const engineColor = engineColors[trace.engine] || 'bg-slate-100 text-slate-700';
+                    const engine = trace?.engine ?? 'unknown';
+                    const engineColor = engineColors[engine] || 'bg-slate-100 text-slate-700';
 
                     return `
-                        <div class="p-6 hover:bg-slate-50 cursor-pointer transition" onclick="showTraceDetail('${trace.trace_id}')">
+                        <div class="p-6 hover:bg-slate-50 cursor-pointer transition" onclick="showTraceDetail('${escapeHtml(trace?.trace_id ?? '')}')">
                             <div class="flex items-start gap-4">
                                 <div class="flex-shrink-0 w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
                                     <i data-lucide="list" class="w-5 h-5 text-indigo-600"></i>
                                 </div>
                                 <div class="flex-1 min-w-0">
                                     <div class="flex items-center gap-2 mb-2">
-                                        <span class="px-2 py-0.5 ${engineColor} text-xs font-medium rounded">${trace.engine}</span>
-                                        <span class="px-2 py-0.5 ${trace.kb_hit ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'} text-xs font-medium rounded">
-                                            ${trace.kb_hit ? '知识库命中' : '未命中'}
+                                        <span class="px-2 py-0.5 ${engineColor} text-xs font-medium rounded">${escapeHtml(engine)}</span>
+                                        <span class="px-2 py-0.5 ${trace?.kb_hit ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'} text-xs font-medium rounded">
+                                            ${trace?.kb_hit ? '知识库命中' : '未命中'}
                                         </span>
-                                        <span class="text-xs text-slate-500">${trace.agent}</span>
-                                        <span class="text-xs text-slate-400">· ${Math.round(trace.latency_ms)}ms</span>
+                                        <span class="text-xs text-slate-500">${escapeHtml(trace?.agent ?? '?')}</span>
+                                        <span class="text-xs text-slate-400">· ${Math.round(trace?.latency_ms ?? 0)}ms</span>
                                     </div>
-                                    <p class="text-sm text-slate-700 mb-1">Trace ID: <code class="bg-slate-100 px-1 rounded text-xs">${trace.trace_id}</code></p>
-                                    <p class="text-sm text-slate-500">Session: ${trace.session_id}</p>
-                                    <p class="text-xs text-slate-400 mt-1">${formatDateTime(trace.created_at)}</p>
+                                    <p class="text-sm text-slate-700 mb-1">Trace ID: <code class="bg-slate-100 px-1 rounded text-xs">${escapeHtml(trace?.trace_id ?? '?')}</code></p>
+                                    <p class="text-sm text-slate-500">Session: ${escapeHtml(trace?.session_id ?? '?')}</p>
+                                    <p class="text-xs text-slate-400 mt-1">${formatDateTime(trace?.created_at)}</p>
                                 </div>
                             </div>
                         </div>
@@ -1617,6 +1718,7 @@
                 lucide.createIcons();
             } catch (error) {
                 console.error('加载执行轨迹失败:', error);
+                showToast('加载执行轨迹失败', 'error');
             }
         }
 

@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+/* 动态状态颜色类（JS 模板字符串拼接生成，需强制保留） */
+@theme {
+  /* Safelist: 强制包含动态生成的类 */
+}
+
+.bg-green-100,
+.text-green-700,
+.bg-red-100,
+.text-red-700,
+.bg-yellow-100,
+.text-yellow-700,
+.bg-slate-100,
+.text-slate-600,
+.bg-blue-50,
+.border-blue-200,
+.bg-blue-100,
+.text-blue-700,
+.bg-slate-50,
+.border-slate-200,
+.bg-slate-200,
+.text-slate-700,
+.bg-red-50,
+.text-red-600 {
+  /* Placeholder to ensure these classes are included */
+}

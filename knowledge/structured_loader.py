@@ -4,6 +4,7 @@
 所有格式解析器输出统一的Block列表
 """
 import os
+import sys
 import logging
 from typing import List, Optional
 from abc import ABC, abstractmethod
@@ -193,8 +194,12 @@ class PDFParser(DocumentParser):
         """解析文字版PDF"""
         try:
             import fitz  # PyMuPDF
-        except ImportError:
-            raise ImportError("需要安装 PyMuPDF: pip install pymupdf")
+        except ImportError as e:
+            error_msg = (
+                f"PyMuPDF 未安装。请运行: {sys.executable} -m pip install pymupdf\n"
+                "注意：如果启动日志显示 PyMuPDF 可用但此处仍报错，说明当前代码运行的解释器与启动检查的不一致。"
+            )
+            raise ImportError(error_msg) from e
 
         doc = fitz.open(file_path)
         filename = os.path.basename(file_path)

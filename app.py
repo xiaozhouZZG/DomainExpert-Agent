@@ -26,6 +26,30 @@ logger = logging.getLogger(__name__)
 ensure_db_ready()
 
 
+def _check_pymupdf_availability():
+    """启动时硬校验 PyMuPDF 依赖"""
+    logger.info("=" * 60)
+    logger.info("当前 Python 解释器: %s", sys.executable)
+    logger.info("=" * 60)
+
+    try:
+        import fitz
+        logger.info("✓ PyMuPDF 可用 (版本: %s)", fitz.__version__ if hasattr(fitz, '__version__') else 'unknown')
+    except ImportError as e:
+        logger.error("=" * 60)
+        logger.error("✗ PyMuPDF 未安装！PDF 文档解析功能将不可用")
+        logger.error("=" * 60)
+        logger.error("请使用以下命令安装:")
+        logger.error("    %s -m pip install pymupdf", sys.executable)
+        logger.error("=" * 60)
+        raise RuntimeError(
+            f"缺少必需依赖 PyMuPDF。请运行: {sys.executable} -m pip install pymupdf"
+        ) from e
+
+
+_check_pymupdf_availability()
+
+
 def _assert_single_instance(host: str, port: int) -> None:
     probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:

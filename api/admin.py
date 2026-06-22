@@ -983,3 +983,53 @@ async def test_send_reply(request: dict):
             "status": "error",
             "detail": str(e)
         }
+
+
+@router.get("/poll-messages")
+async def poll_messages():
+    """
+    轮询未读消息（影子模式：只读不发）
+
+    遍历会话列表，找出有未读且需要回复的会话。
+    【绝不发送消息，只读取+记录】
+
+    Returns:
+        {
+            "status": "ok",
+            "conversations": [
+                {
+                    "buyer_name": "买家昵称",
+                    "last_buyer_msg": "买家最新问题",
+                    "unread_count": 3,
+                    "needs_reply": true
+                },
+                ...
+            ],
+            "total": 5,
+            "needs_reply_count": 3
+        }
+    """
+    try:
+        from platforms.goofish_playwright import GoofishPlaywrightPlatform
+
+        platform = GoofishPlaywrightPlatform()
+
+        # 调用轮询（只读不发）
+        conversations = platform.poll_unread_conversations()
+
+        # 统计需要回复的数量
+        needs_reply_count = sum(1 for c in conversations if c.get("needs_reply"))
+
+        return {
+            "status": "ok",
+            "conversations": conversations,
+            "total": len(conversations),
+            "needs_reply_count": needs_reply_count
+        }
+
+    except Exception as e:
+        logger.exception("poll_messages failed")
+        return {
+            "status": "error",
+            "detail": str(e)
+        }

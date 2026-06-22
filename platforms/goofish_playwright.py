@@ -483,6 +483,172 @@ class GoofishPlaywrightPlatform:
 
         return self._run_with_page("read_listings", action)
 
+    def poll_unread_conversations(self) -> List[Dict[str, Any]]:
+        """
+        轮询未读会话（影子模式：只读不发）
+
+        遍历会话列表，找出有未读消息且最后一条是买家消息的会话。
+        【绝不发送消息，只读取+记录】
+
+        Returns:
+            [
+                {
+                    "buyer_name": "买家昵称",
+                    "last_buyer_msg": "买家最新问题",
+                    "unread_count": 3,
+                    "needs_reply": true
+                },
+                ...
+            ]
+        """
+        # 系统号黑名单（宁漏勿杀，只过滤明确的系统/平台号）
+        SYSTEM_ACCOUNT_BLACKLIST = [
+            "通知消息",
+            "官方代充",
+            "闲鱼小蜜",
+            "系统消息",
+            "平台通知",
+        ]
+
+        def action(page):
+            import time
+
+            results = []
+
+            try:
+                current_url = page.url
+                logger.info(f"poll_unread_conversations: 当前URL = {current_url}")
+
+                # 步骤1: 检查是否已有会话列表
+                conversation_items = page.locator('[class*="conversation-item"]').all()
+                logger.info(f"poll_unread_conversations: 当前页面找到 {len(conversation_items)} 个会话项")
+
+                # 如果没有会话列表，导航到 IM 页面
+                if len(conversation_items) == 0:
+                    logger.info("poll_unread_conversations: 需要导航到 IM 页面")
+
+                    try:
+                        page.goto("https://www.goofish.com/im", wait_until="commit", timeout=10000)
+                        logger.info("poll_unread_conversations: goto 完成，等待会话列表出现")
+                    except Exception as e:
+                        logger.warning(f"poll_unread_conversations: goto 失败，降级为轮询等待: {e}")
+
+                    # 轮询等待会话列表出现（最多 15 秒）
+                    max_wait = 15
+                    poll_interval = 0.5
+                    elapsed = 0
+
+                    while elapsed < max_wait:
+                        conversation_items = page.locator('[class*="conversation-item"]').all()
+                        if len(conversation_items) > 0:
+                            logger.info(f"poll_unread_conversations: ✓ 会话列表已出现，找到 {len(conversation_items)} 项")
+                            break
+
+                        time.sleep(poll_interval)
+                        elapsed += poll_interval
+
+                    if len(conversation_items) == 0:
+                        logger.error("poll_unread_conversations: 会话列表超时未出现")
+                        return results
+
+                # 步骤2: 遍历会话项，筛选有未读的
+                logger.info(f"poll_unread_conversations: 开始遍历 {len(conversation_items)} 个会话")
+
+                for idx, item in enumerate(conversation_items):
+                    try:
+                        # 获取会话项文字
+                        item_text = item.text_content()
+
+                        # 检查未读角标
+                        badge = item.locator('.ant-badge-count').first
+                        unread_count = 0
+
+                        try:
+                            if badge.is_visible(timeout=500):
+                                badge_text = badge.text_content()
+                                if badge_text and badge_text.isdigit():
+                                    unread_count = int(badge_text)
+                        except:
+                            pass
+
+                        # 无未读消息，跳过
+                        if unread_count == 0:
+                            continue
+
+                        # 提取买家昵称（去掉前导数字）
+                        buyer_name = item_text.strip()
+                        # 简单去掉开头的数字（未读数）
+                        import re
+                        buyer_name = re.sub(r'^\d+\s*', '', buyer_name)
+
+                        logger.info(f"poll_unread_conversations: [{idx}] 找到未读会话: '{buyer_name}' (未读: {unread_count})")
+
+                        # 系统号过滤
+                        is_system = any(keyword in buyer_name for keyword in SYSTEM_ACCOUNT_BLACKLIST)
+                        if is_system:
+                            logger.info(f"poll_unread_conversations: [{idx}] 跳过系统号: '{buyer_name}'")
+                            continue
+
+                        # 步骤3: 点进会话，检查最后一条消息方向
+                        logger.info(f"poll_unread_conversations: [{idx}] 点击进入会话: '{buyer_name}'")
+                        item.click()
+                        time.sleep(2)
+
+                        # 等待消息区出现
+                        message_bubbles = page.locator('[class*="message-text"]').all()
+                        if len(message_bubbles) == 0:
+                            logger.warning(f"poll_unread_conversations: [{idx}] 未找到消息气泡，跳过")
+                            continue
+
+                        logger.info(f"poll_unread_conversations: [{idx}] 找到 {len(message_bubbles)} 条消息")
+
+                        # 检查最后一条消息方向
+                        last_bubble = message_bubbles[-1]
+                        last_bubble_html = last_bubble.evaluate("el => el.outerHTML")
+
+                        # 判断是买家消息还是自己消息
+                        is_buyer_msg = "message-text-left" in last_bubble_html
+                        is_self_msg = "message-text-right" in last_bubble_html
+
+                        if is_buyer_msg:
+                            # 最后一条是买家消息 → 需要回复
+                            last_buyer_msg = last_bubble.text_content()
+                            logger.info(f"poll_unread_conversations: [{idx}] ✓ 买家在等回复: '{last_buyer_msg}'")
+
+                            results.append({
+                                "buyer_name": buyer_name,
+                                "last_buyer_msg": last_buyer_msg,
+                                "unread_count": unread_count,
+                                "needs_reply": True
+                            })
+
+                        elif is_self_msg:
+                            # 最后一条是自己消息 → 已回复
+                            logger.info(f"poll_unread_conversations: [{idx}] 最后一条是自己的消息，已回复")
+                            results.append({
+                                "buyer_name": buyer_name,
+                                "last_buyer_msg": None,
+                                "unread_count": unread_count,
+                                "needs_reply": False
+                            })
+
+                        else:
+                            logger.warning(f"poll_unread_conversations: [{idx}] 无法判断消息方向")
+
+                    except Exception as e:
+                        logger.warning(f"poll_unread_conversations: [{idx}] 处理会话时出错: {e}")
+                        continue
+
+                logger.info(f"poll_unread_conversations: 完成，找到 {len(results)} 个会话需要处理")
+                return results
+
+            except Exception as e:
+                logger.exception("poll_unread_conversations unexpected error")
+                return results
+
+        # 在 browser_worker 线程内执行
+        return self._run_with_page("poll_unread_conversations", action)
+
     def send_reply(
         self,
         conversation_id: str,
@@ -743,7 +909,6 @@ class GoofishPlaywrightPlatform:
                 return result
 
         # 在 browser_worker 线程内执行
-        return self._run_with_page("send_reply", action)
         return self._run_with_page("send_reply", action)
 
     def list_item(

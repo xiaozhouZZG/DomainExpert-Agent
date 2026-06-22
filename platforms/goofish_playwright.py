@@ -575,9 +575,9 @@ class GoofishPlaywrightPlatform:
                 except Exception as e:
                     logger.warning(f"ensure_im_ready: 检测登录元素失败: {e}")
 
-                # 步骤4: 轮询等会话列表出现（15s）
+                # 步骤4: 轮询等会话列表出现（10s）
                 logger.info(f"ensure_im_ready: 轮询等待会话列表出现（{CONVERSATION_SELECTOR}）")
-                poll_timeout = 15
+                poll_timeout = 10
                 poll_interval = 0.5
                 elapsed = 0
 

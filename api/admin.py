@@ -998,18 +998,12 @@ async def poll_messages():
 
     Returns:
         {
-            "status": "ok",
-            "conversations": [
-                {
-                    "buyer_name": "买家昵称",
-                    "last_buyer_msg": "买家最新问题",
-                    "unread_count": 3,
-                    "needs_reply": true
-                },
-                ...
-            ],
+            "status": "ready" | "need_login" | "failed",
+            "detail": "描述",
+            "conversations": [...],
             "total": 5,
-            "needs_reply_count": 3
+            "needs_reply_count": 3,
+            "screenshot": "失败截图路径（仅 failed 时）"
         }
     """
     try:
@@ -1017,22 +1011,60 @@ async def poll_messages():
 
         platform = GoofishPlaywrightPlatform()
 
-        # 调用轮询（只读不发）
-        conversations = platform.poll_unread_conversations()
+        # 调用轮询（只读不发，返回三态结构）
+        result = platform.poll_unread_conversations()
 
-        # 统计需要回复的数量
-        needs_reply_count = sum(1 for c in conversations if c.get("needs_reply"))
+        # result 结构:
+        # {
+        #     "status": "ready" | "need_login" | "failed",
+        #     "detail": "描述",
+        #     "screenshot": "截图路径",
+        #     "conversations": [...]
+        # }
 
-        return {
-            "status": "ok",
-            "conversations": conversations,
-            "total": len(conversations),
-            "needs_reply_count": needs_reply_count
-        }
+        status = result.get("status", "failed")
+        conversations = result.get("conversations", [])
+
+        if status == "ready":
+            # 页面就绪，统计会话
+            needs_reply_count = sum(1 for c in conversations if c.get("needs_reply"))
+
+            return {
+                "status": "ready",
+                "detail": result.get("detail", ""),
+                "conversations": conversations,
+                "total": len(conversations),
+                "needs_reply_count": needs_reply_count
+            }
+
+        elif status == "need_login":
+            # 需要登录
+            return {
+                "status": "need_login",
+                "detail": result.get("detail", "Login required"),
+                "screenshot": result.get("screenshot"),
+                "conversations": [],
+                "total": 0,
+                "needs_reply_count": 0
+            }
+
+        else:
+            # 失败
+            return {
+                "status": "failed",
+                "detail": result.get("detail", "Unknown error"),
+                "screenshot": result.get("screenshot"),
+                "conversations": [],
+                "total": 0,
+                "needs_reply_count": 0
+            }
 
     except Exception as e:
         logger.exception("poll_messages failed")
         return {
-            "status": "error",
-            "detail": str(e)
+            "status": "failed",
+            "detail": f"Exception: {str(e)}",
+            "conversations": [],
+            "total": 0,
+            "needs_reply_count": 0
         }

@@ -483,6 +483,160 @@ class GoofishPlaywrightPlatform:
 
         return self._run_with_page("read_listings", action)
 
+    def ensure_im_ready(self, page, max_heal: int = 2) -> Dict[str, Any]:
+        """
+        就绪闸门：强制收敛页面到"可读状态"，不行就自愈
+
+        策略：
+        1. 检查 page/context 是否活着
+        2. 如果不在 /im 页面，导航过去（commit，不等 domcontentloaded）
+        3. 检测登录态（localStorage）
+        4. 轮询等会话列表出现（15s）
+        5. 没出现就 reload 自愈，最多 max_heal 次
+
+        Returns:
+            {
+                "status": "ready" | "need_login" | "failed",
+                "detail": "描述",
+                "screenshot": "截图路径（失败时）"
+            }
+        """
+        import time
+        from pathlib import Path
+        import datetime
+
+        IM_URL = "https://www.goofish.com/im"
+        CONVERSATION_SELECTOR = '[class*="conversation-item"]'
+
+        logger.info(f"ensure_im_ready: 开始页面就绪检查，max_heal={max_heal}")
+
+        for heal_round in range(max_heal + 1):
+            try:
+                logger.info(f"ensure_im_ready: 第 {heal_round + 1}/{max_heal + 1} 轮检查")
+
+                # 步骤1: 检查 page/context 是否活着
+                try:
+                    current_url = page.url
+                    logger.info(f"ensure_im_ready: 当前 URL = {current_url}")
+                except Exception as e:
+                    logger.error(f"ensure_im_ready: page/context 已死: {e}")
+                    return {
+                        "status": "failed",
+                        "detail": f"Page/context is dead: {e}",
+                        "screenshot": None
+                    }
+
+                # 步骤2: 如果不在 /im 页面，导航过去（commit，不等 domcontentloaded）
+                if "/im" not in current_url:
+                    logger.info(f"ensure_im_ready: 不在 IM 页面，导航到 {IM_URL}")
+                    try:
+                        page.goto(IM_URL, wait_until="commit", timeout=10000)
+                        logger.info("ensure_im_ready: 导航到 IM 页面完成（commit）")
+                        time.sleep(2)  # 给页面一点渲染时间
+                    except Exception as e:
+                        logger.warning(f"ensure_im_ready: 导航失败: {e}")
+                        if heal_round < max_heal:
+                            logger.info("ensure_im_ready: 准备重试")
+                            continue
+                        else:
+                            return {
+                                "status": "failed",
+                                "detail": f"Navigation failed after {max_heal} attempts: {e}",
+                                "screenshot": self._save_failure_screenshot(page, "nav_failed")
+                            }
+
+                # 步骤3: 检测登录态（localStorage）
+                try:
+                    local_storage_count = page.evaluate("() => Object.keys(localStorage).length")
+                    logger.info(f"ensure_im_ready: localStorage 条目数 = {local_storage_count}")
+
+                    # 正常登录态约 39 项，白屏/未登录约 0 项
+                    if local_storage_count < 5:
+                        logger.warning(f"ensure_im_ready: localStorage 条目过少（{local_storage_count}），可能未登录")
+                        return {
+                            "status": "need_login",
+                            "detail": f"localStorage count too low: {local_storage_count}",
+                            "screenshot": self._save_failure_screenshot(page, "need_login")
+                        }
+                except Exception as e:
+                    logger.warning(f"ensure_im_ready: 检测 localStorage 失败: {e}")
+
+                # 步骤4: 轮询等会话列表出现（15s）
+                logger.info(f"ensure_im_ready: 轮询等待会话列表出现（{CONVERSATION_SELECTOR}）")
+                poll_timeout = 15
+                poll_interval = 0.5
+                elapsed = 0
+
+                while elapsed < poll_timeout:
+                    try:
+                        conversation_items = page.locator(CONVERSATION_SELECTOR).all()
+                        if len(conversation_items) > 0:
+                            logger.info(f"ensure_im_ready: ✓ 会话列表已出现，找到 {len(conversation_items)} 项")
+                            return {
+                                "status": "ready",
+                                "detail": f"Conversation list ready with {len(conversation_items)} items",
+                                "screenshot": None
+                            }
+                    except Exception as e:
+                        logger.warning(f"ensure_im_ready: 查询会话列表失败: {e}")
+
+                    time.sleep(poll_interval)
+                    elapsed += poll_interval
+
+                logger.warning(f"ensure_im_ready: 会话列表超时未出现（{poll_timeout}s）")
+
+                # 步骤5: 自愈重试 - reload
+                if heal_round < max_heal:
+                    logger.info(f"ensure_im_ready: 自愈 - reload 页面")
+                    try:
+                        page.reload(wait_until="commit", timeout=10000)
+                        logger.info("ensure_im_ready: reload 完成")
+                        time.sleep(3)  # 等待页面稳定
+                    except Exception as e:
+                        logger.warning(f"ensure_im_ready: reload 失败: {e}")
+                else:
+                    # 最后一轮仍失败
+                    logger.error(f"ensure_im_ready: 自愈 {max_heal} 轮后仍未找到会话列表")
+                    return {
+                        "status": "failed",
+                        "detail": f"Conversation list not found after {max_heal} heal attempts",
+                        "screenshot": self._save_failure_screenshot(page, "no_conversation_list")
+                    }
+
+            except Exception as e:
+                logger.exception(f"ensure_im_ready: 第 {heal_round + 1} 轮出现异常")
+                if heal_round >= max_heal:
+                    return {
+                        "status": "failed",
+                        "detail": f"Unexpected error: {str(e)}",
+                        "screenshot": self._save_failure_screenshot(page, "exception")
+                    }
+
+        return {
+            "status": "failed",
+            "detail": "Max heal rounds exceeded",
+            "screenshot": None
+        }
+
+    def _save_failure_screenshot(self, page, reason: str) -> str:
+        """保存失败截图"""
+        try:
+            from pathlib import Path
+            import datetime
+
+            screenshot_dir = Path("logs/ensure_im_ready_failures")
+            screenshot_dir.mkdir(parents=True, exist_ok=True)
+
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            screenshot_path = screenshot_dir / f"{reason}_{timestamp}.png"
+
+            page.screenshot(path=str(screenshot_path), full_page=True)
+            logger.info(f"_save_failure_screenshot: 已保存 {screenshot_path}")
+            return str(screenshot_path)
+        except Exception as e:
+            logger.warning(f"_save_failure_screenshot: 截图失败: {e}")
+            return None
+
     def poll_unread_conversations(self) -> List[Dict[str, Any]]:
         """
         轮询未读会话（影子模式：只读不发）
@@ -516,52 +670,62 @@ class GoofishPlaywrightPlatform:
             results = []
 
             try:
-                current_url = page.url
-                logger.info(f"poll_unread_conversations: 当前URL = {current_url}")
+                # 步骤0: 先过就绪闸门
+                logger.info("poll_unread_conversations: 调用就绪闸门")
+                readiness = self.ensure_im_ready(page, max_heal=2)
+                logger.info(f"poll_unread_conversations: 就绪闸门返回: {readiness}")
 
-                # 步骤1: 检查是否已有会话列表（安全获取）
+                if readiness["status"] != "ready":
+                    # 页面未就绪，直接返回带状态的结果
+                    logger.warning(f"poll_unread_conversations: 页面未就绪，状态={readiness['status']}")
+                    return {
+                        "status": readiness["status"],
+                        "detail": readiness["detail"],
+                        "screenshot": readiness.get("screenshot"),
+                        "conversations": []
+                    }
+
+                # 页面已就绪，开始读取会话
+                logger.info("poll_unread_conversations: 页面已就绪，开始读取会话")
+
+                # 获取会话列表（闸门已确保会话列表存在）
                 conversation_items = []
                 try:
                     conversation_items = page.locator('[class*="conversation-item"]').all()
-                    logger.info(f"poll_unread_conversations: 当前页面找到 {len(conversation_items)} 个会话项")
+                    logger.info(f"poll_unread_conversations: 找到 {len(conversation_items)} 个会话项")
                 except Exception as e:
-                    logger.warning(f"poll_unread_conversations: 获取会话列表失败: {e}")
-
-                # 如果没有会话列表，导航到 IM 页面
-                if len(conversation_items) == 0:
-                    logger.info("poll_unread_conversations: 需要导航到 IM 页面")
-
-                    # 使用更稳定的导航方法
-                    self._goto_domcontentloaded_or_body(
-                        page,
-                        "https://www.goofish.com/im",
-                        "poll_unread_conversations"
-                    )
-                    logger.info("poll_unread_conversations: 导航完成，等待会话列表出现")
-
-                    # 等待页面稳定（额外等待）
-                    time.sleep(3)
-
-                    # 轮询等待会话列表出现（最多 20 秒）
-                    max_wait = 20
-                    poll_interval = 0.5
-                    elapsed = 0
-
-                    while elapsed < max_wait:
+                    # 如果是 Execution context destroyed，重试一次
+                    if "Execution context was destroyed" in str(e):
+                        logger.warning(f"poll_unread_conversations: Execution context destroyed，重试")
+                        time.sleep(1)
                         try:
                             conversation_items = page.locator('[class*="conversation-item"]').all()
-                            if len(conversation_items) > 0:
-                                logger.info(f"poll_unread_conversations: ✓ 会话列表已出现，找到 {len(conversation_items)} 项")
-                                break
-                        except Exception as e:
-                            logger.warning(f"poll_unread_conversations: 轮询获取会话列表失败: {e}")
+                            logger.info(f"poll_unread_conversations: 重试成功，找到 {len(conversation_items)} 个会话项")
+                        except Exception as e2:
+                            logger.error(f"poll_unread_conversations: 重试仍失败: {e2}")
+                            return {
+                                "status": "failed",
+                                "detail": f"Locator retry failed: {str(e2)}",
+                                "screenshot": self._save_failure_screenshot(page, "locator_failed"),
+                                "conversations": []
+                            }
+                    else:
+                        logger.error(f"poll_unread_conversations: 获取会话列表失败: {e}")
+                        return {
+                            "status": "failed",
+                            "detail": f"Failed to get conversation items: {str(e)}",
+                            "screenshot": self._save_failure_screenshot(page, "get_items_failed"),
+                            "conversations": []
+                        }
 
-                        time.sleep(poll_interval)
-                        elapsed += poll_interval
-
-                    if len(conversation_items) == 0:
-                        logger.error("poll_unread_conversations: 会话列表超时未出现")
-                        return results
+                if len(conversation_items) == 0:
+                    logger.info("poll_unread_conversations: 真实 0 个会话（闸门已确保页面正常）")
+                    return {
+                        "status": "ready",
+                        "detail": "No conversations found (empty state)",
+                        "screenshot": None,
+                        "conversations": []
+                    }
 
                 # 步骤2: 遍历会话项，筛选有未读的
                 logger.info(f"poll_unread_conversations: 开始遍历 {len(conversation_items)} 个会话")
@@ -652,11 +816,21 @@ class GoofishPlaywrightPlatform:
                         continue
 
                 logger.info(f"poll_unread_conversations: 完成，找到 {len(results)} 个会话需要处理")
-                return results
+                return {
+                    "status": "ready",
+                    "detail": f"Found {len(results)} conversations",
+                    "screenshot": None,
+                    "conversations": results
+                }
 
             except Exception as e:
                 logger.exception("poll_unread_conversations unexpected error")
-                return results
+                return {
+                    "status": "failed",
+                    "detail": f"Unexpected error: {str(e)}",
+                    "screenshot": self._save_failure_screenshot(page, "unexpected_error"),
+                    "conversations": []
+                }
 
         # 在 browser_worker 线程内执行
         return self._run_with_page("poll_unread_conversations", action)

@@ -519,9 +519,13 @@ class GoofishPlaywrightPlatform:
                 current_url = page.url
                 logger.info(f"poll_unread_conversations: 当前URL = {current_url}")
 
-                # 步骤1: 检查是否已有会话列表
-                conversation_items = page.locator('[class*="conversation-item"]').all()
-                logger.info(f"poll_unread_conversations: 当前页面找到 {len(conversation_items)} 个会话项")
+                # 步骤1: 检查是否已有会话列表（安全获取）
+                conversation_items = []
+                try:
+                    conversation_items = page.locator('[class*="conversation-item"]').all()
+                    logger.info(f"poll_unread_conversations: 当前页面找到 {len(conversation_items)} 个会话项")
+                except Exception as e:
+                    logger.warning(f"poll_unread_conversations: 获取会话列表失败: {e}")
 
                 # 如果没有会话列表，导航到 IM 页面
                 if len(conversation_items) == 0:
@@ -539,10 +543,13 @@ class GoofishPlaywrightPlatform:
                     elapsed = 0
 
                     while elapsed < max_wait:
-                        conversation_items = page.locator('[class*="conversation-item"]').all()
-                        if len(conversation_items) > 0:
-                            logger.info(f"poll_unread_conversations: ✓ 会话列表已出现，找到 {len(conversation_items)} 项")
-                            break
+                        try:
+                            conversation_items = page.locator('[class*="conversation-item"]').all()
+                            if len(conversation_items) > 0:
+                                logger.info(f"poll_unread_conversations: ✓ 会话列表已出现，找到 {len(conversation_items)} 项")
+                                break
+                        except Exception as e:
+                            logger.warning(f"poll_unread_conversations: 轮询获取会话列表失败: {e}")
 
                         time.sleep(poll_interval)
                         elapsed += poll_interval

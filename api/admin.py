@@ -5,6 +5,7 @@
 """
 import os
 import json
+import logging
 import tempfile
 import httpx
 from datetime import datetime
@@ -19,6 +20,8 @@ from knowledge.chunker import SimpleChunker
 from observability.metrics import get_metrics
 from core.config_manager import ConfigManager
 from config import settings
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 

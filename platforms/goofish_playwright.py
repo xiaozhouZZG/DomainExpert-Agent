@@ -531,14 +531,19 @@ class GoofishPlaywrightPlatform:
                 if len(conversation_items) == 0:
                     logger.info("poll_unread_conversations: 需要导航到 IM 页面")
 
-                    try:
-                        page.goto("https://www.goofish.com/im", wait_until="commit", timeout=10000)
-                        logger.info("poll_unread_conversations: goto 完成，等待会话列表出现")
-                    except Exception as e:
-                        logger.warning(f"poll_unread_conversations: goto 失败，降级为轮询等待: {e}")
+                    # 使用更稳定的导航方法
+                    self._goto_domcontentloaded_or_body(
+                        page,
+                        "https://www.goofish.com/im",
+                        "poll_unread_conversations"
+                    )
+                    logger.info("poll_unread_conversations: 导航完成，等待会话列表出现")
 
-                    # 轮询等待会话列表出现（最多 15 秒）
-                    max_wait = 15
+                    # 等待页面稳定（额外等待）
+                    time.sleep(3)
+
+                    # 轮询等待会话列表出现（最多 20 秒）
+                    max_wait = 20
                     poll_interval = 0.5
                     elapsed = 0
 

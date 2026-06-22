@@ -989,12 +989,15 @@ async def test_send_reply(request: dict):
 
 
 @router.get("/poll-messages")
-async def poll_messages():
+async def poll_messages(test_profile: str = None):
     """
     轮询未读消息（影子模式：只读不发）
 
     遍历会话列表，找出有未读且需要回复的会话。
     【绝不发送消息，只读取+记录】
+
+    Args:
+        test_profile: 测试用 profile 目录（可选，用于测试场景）
 
     Returns:
         {
@@ -1009,7 +1012,15 @@ async def poll_messages():
     try:
         from platforms.goofish_playwright import GoofishPlaywrightPlatform
 
-        platform = GoofishPlaywrightPlatform()
+        # 如果指定了测试 profile，使用它；否则使用默认主 profile
+        if test_profile:
+            logger.info(f"poll_messages: 使用测试 profile: {test_profile}")
+            platform = GoofishPlaywrightPlatform(
+                user_data_dir=test_profile,
+                storage_state_path=f"{test_profile}/storage_state.json"
+            )
+        else:
+            platform = GoofishPlaywrightPlatform()
 
         # 调用轮询（只读不发，返回三态结构）
         result = platform.poll_unread_conversations()

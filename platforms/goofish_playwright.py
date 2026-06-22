@@ -545,21 +545,35 @@ class GoofishPlaywrightPlatform:
                                 "screenshot": self._save_failure_screenshot(page, "nav_failed")
                             }
 
-                # 步骤3: 检测登录态（localStorage）
+                # 步骤3: 检测登录态
+                # 方式1: 检查 localStorage（快速预检）
                 try:
                     local_storage_count = page.evaluate("() => Object.keys(localStorage).length")
                     logger.info(f"ensure_im_ready: localStorage 条目数 = {local_storage_count}")
+                except Exception as e:
+                    logger.warning(f"ensure_im_ready: 检测 localStorage 失败: {e}")
+                    local_storage_count = 0
 
-                    # 正常登录态约 39 项，白屏/未登录约 0 项
-                    if local_storage_count < 5:
-                        logger.warning(f"ensure_im_ready: localStorage 条目过少（{local_storage_count}），可能未登录")
+                # 方式2: 检查页面是否有登录相关元素（更准确）
+                try:
+                    # 等待页面稍微渲染
+                    time.sleep(1)
+
+                    # 检查是否有登录二维码或登录按钮
+                    login_qrcode = page.locator('[class*="qrcode"], [class*="login-qrcode"], [class*="scan-code"]').count()
+                    login_button = page.locator('text=/登录|扫码登录|立即登录/i').count()
+
+                    logger.info(f"ensure_im_ready: 登录元素检测 - 二维码:{login_qrcode} 登录按钮:{login_button}")
+
+                    if login_qrcode > 0 or login_button > 0:
+                        logger.warning("ensure_im_ready: 检测到登录页面元素，未登录")
                         return {
                             "status": "need_login",
-                            "detail": f"localStorage count too low: {local_storage_count}",
+                            "detail": f"Login page detected (qrcode:{login_qrcode}, button:{login_button})",
                             "screenshot": self._save_failure_screenshot(page, "need_login")
                         }
                 except Exception as e:
-                    logger.warning(f"ensure_im_ready: 检测 localStorage 失败: {e}")
+                    logger.warning(f"ensure_im_ready: 检测登录元素失败: {e}")
 
                 # 步骤4: 轮询等会话列表出现（15s）
                 logger.info(f"ensure_im_ready: 轮询等待会话列表出现（{CONVERSATION_SELECTOR}）")

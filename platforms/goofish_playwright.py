@@ -554,28 +554,8 @@ class GoofishPlaywrightPlatform:
                     logger.warning(f"ensure_im_ready: 检测 localStorage 失败: {e}")
                     local_storage_count = 0
 
-                # 方式2: 检查页面是否有登录相关元素（更准确）
-                try:
-                    # 等待页面稍微渲染
-                    time.sleep(1)
-
-                    # 检查是否有登录二维码或登录按钮
-                    login_qrcode = page.locator('[class*="qrcode"], [class*="login-qrcode"], [class*="scan-code"]').count()
-                    login_button = page.locator('text=/登录|扫码登录|立即登录/i').count()
-
-                    logger.info(f"ensure_im_ready: 登录元素检测 - 二维码:{login_qrcode} 登录按钮:{login_button}")
-
-                    if login_qrcode > 0 or login_button > 0:
-                        logger.warning("ensure_im_ready: 检测到登录页面元素，未登录")
-                        return {
-                            "status": "need_login",
-                            "detail": f"Login page detected (qrcode:{login_qrcode}, button:{login_button})",
-                            "screenshot": self._save_failure_screenshot(page, "need_login")
-                        }
-                except Exception as e:
-                    logger.warning(f"ensure_im_ready: 检测登录元素失败: {e}")
-
                 # 步骤4: 轮询等会话列表出现（10s）
+                # 优先信任会话列表这个强信号，有会话列表 = 登录正常
                 logger.info(f"ensure_im_ready: 轮询等待会话列表出现（{CONVERSATION_SELECTOR}）")
                 poll_timeout = 10
                 poll_interval = 0.5
@@ -599,7 +579,29 @@ class GoofishPlaywrightPlatform:
 
                 logger.warning(f"ensure_im_ready: 会话列表超时未出现（{poll_timeout}s）")
 
-                # 步骤5: 自愈重试 - reload
+                # 步骤5: 会话列表找不到，才检查是否是登录问题
+                try:
+                    # 等待页面稍微渲染
+                    time.sleep(1)
+
+                    # 检查是否有登录二维码或登录按钮
+                    login_qrcode = page.locator('[class*="qrcode"], [class*="login-qrcode"], [class*="scan-code"]').count()
+                    login_button = page.locator('text=/扫码登录|立即登录|请登录/i').count()
+
+                    logger.info(f"ensure_im_ready: 登录元素检测 - 二维码:{login_qrcode} 登录按钮:{login_button}")
+
+                    # 只有明确的登录页特征（二维码或明确的登录按钮）才判定为 need_login
+                    if login_qrcode > 0 or login_button > 0:
+                        logger.warning("ensure_im_ready: 检测到登录页面元素，未登录")
+                        return {
+                            "status": "need_login",
+                            "detail": f"Login page detected (qrcode:{login_qrcode}, button:{login_button})",
+                            "screenshot": self._save_failure_screenshot(page, "need_login")
+                        }
+                except Exception as e:
+                    logger.warning(f"ensure_im_ready: 检测登录元素失败: {e}")
+
+                # 步骤6: 自愈重试 - reload
                 if heal_round < max_heal:
                     logger.info(f"ensure_im_ready: 自愈 - reload 页面")
                     try:

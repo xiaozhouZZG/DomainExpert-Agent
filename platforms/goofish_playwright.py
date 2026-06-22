@@ -746,11 +746,12 @@ class GoofishPlaywrightPlatform:
                 # 步骤2: 遍历会话项，筛选有未读的
                 logger.info(f"poll_unread_conversations: 开始遍历 {len(conversation_items)} 个会话")
 
+                # 【DOM dump 调试】找到第一个有未读的会话项，打印其 innerHTML 结构
+                # 一次性使用，定位到昵称独立节点后改为精确 selector
+                dom_dumped = False
+
                 for idx, item in enumerate(conversation_items):
                     try:
-                        # 获取会话项文字
-                        item_text = item.text_content()
-
                         # 检查未读角标
                         badge = item.locator('.ant-badge-count').first
                         unread_count = 0
@@ -767,9 +768,35 @@ class GoofishPlaywrightPlatform:
                         if unread_count == 0:
                             continue
 
-                        # 提取买家昵称（去掉前导数字）
+                        # === DOM dump（仅第一次命中未读时）===
+                        if not dom_dumped:
+                            try:
+                                inner_html = item.evaluate("el => el.innerHTML")
+                                # 限制长度，避免日志过大
+                                logger.info("=" * 80)
+                                logger.info(f"poll_unread_conversations: 【DOM DUMP】会话项 [{idx}] innerHTML:")
+                                logger.info(inner_html[:3000])
+                                logger.info("=" * 80)
+
+                                # 打印直接子节点 class 列表，帮助快速定位昵称节点
+                                child_classes = item.evaluate("""
+                                    el => Array.from(el.querySelectorAll('*')).map(node => ({
+                                        tag: node.tagName,
+                                        class: node.className,
+                                        text: (node.textContent || '').substring(0, 40)
+                                    })).slice(0, 30)
+                                """)
+                                logger.info(f"poll_unread_conversations: 【DOM DUMP】子节点 class 列表:")
+                                for i, c in enumerate(child_classes):
+                                    logger.info(f"  [{i}] <{c['tag']} class='{c['class']}'> text='{c['text']}'")
+                                logger.info("=" * 80)
+                                dom_dumped = True
+                            except Exception as dump_err:
+                                logger.warning(f"poll_unread_conversations: DOM DUMP 失败: {dump_err}")
+
+                        # 提取买家昵称（先保留旧逻辑，dump 后再改）
+                        item_text = item.text_content()
                         buyer_name = item_text.strip()
-                        # 简单去掉开头的数字（未读数）
                         import re
                         buyer_name = re.sub(r'^\d+\s*', '', buyer_name)
 
@@ -803,29 +830,49 @@ class GoofishPlaywrightPlatform:
                         is_self_msg = "message-text-right" in last_bubble_html
 
                         if is_buyer_msg:
-                            # 最后一条是买家消息 → 需要回复
                             last_buyer_msg = last_bubble.text_content()
+                            last_msg_direction = "left"
                             logger.info(f"poll_unread_conversations: [{idx}] ✓ 买家在等回复: '{last_buyer_msg}'")
 
                             results.append({
                                 "buyer_name": buyer_name,
                                 "last_buyer_msg": last_buyer_msg,
                                 "unread_count": unread_count,
-                                "needs_reply": True
+                                "needs_reply": True,
+                                "last_msg_direction": last_msg_direction
                             })
 
                         elif is_self_msg:
-                            # 最后一条是自己消息 → 已回复
+                            last_msg_direction = "right"
                             logger.info(f"poll_unread_conversations: [{idx}] 最后一条是自己的消息，已回复")
                             results.append({
                                 "buyer_name": buyer_name,
                                 "last_buyer_msg": None,
                                 "unread_count": unread_count,
-                                "needs_reply": False
+                                "needs_reply": False,
+                                "last_msg_direction": last_msg_direction
                             })
 
                         else:
                             logger.warning(f"poll_unread_conversations: [{idx}] 无法判断消息方向")
+
+                        # === 副作用日志：未读角标已清 ===
+                        try:
+                            time.sleep(0.5)
+                            badge_after = item.locator('.ant-badge-count').first
+                            badge_after_visible = False
+                            try:
+                                badge_after_visible = badge_after.is_visible(timeout=300)
+                            except:
+                                pass
+
+                            if not badge_after_visible:
+                                logger.info(f"poll_unread_conversations: [{idx}] 未读角标已清（会话 '{buyer_name}'）— 下次 poll 该会话 unread 将为 0")
+                            else:
+                                badge_after_text = badge_after.text_content()
+                                logger.info(f"poll_unread_conversations: [{idx}] 未读角标仍可见: '{badge_after_text}'（会话 '{buyer_name}'）")
+                        except Exception as badge_err:
+                            logger.warning(f"poll_unread_conversations: [{idx}] 检查未读角标状态失败: {badge_err}")
 
                     except Exception as e:
                         logger.warning(f"poll_unread_conversations: [{idx}] 处理会话时出错: {e}")

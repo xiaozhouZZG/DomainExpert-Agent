@@ -794,13 +794,35 @@ class GoofishPlaywrightPlatform:
                             except Exception as dump_err:
                                 logger.warning(f"poll_unread_conversations: DOM DUMP 失败: {dump_err}")
 
-                        # 提取买家昵称（先保留旧逻辑，dump 后再改）
-                        item_text = item.text_content()
-                        buyer_name = item_text.strip()
-                        import re
-                        buyer_name = re.sub(r'^\d+\s*', '', buyer_name)
+                        # === 提取买家昵称（基于 DOM DUMP 真实结构）===
+                        # DOM 结构: 会话项内有多个无 class 的 div，按内联 style 区分:
+                        #   - 昵称 div: style 含 "max-width: 180px" + "font-weight: 500"
+                        #   - 预览 div: style 含 "max-width: 165px" + "font-size: 12px"
+                        #   - 时间 div: style 含 "font-size: 10px"
+                        # 昵称是第 1 个带 max-width: 180px 的 div
+                        buyer_name = None
+                        try:
+                            # 优先: 找内联 style 含 max-width: 180px 的 div（昵称专用）
+                            name_divs = item.locator('div[style*="max-width: 180px"]').all()
+                            if len(name_divs) > 0:
+                                buyer_name = name_divs[0].text_content().strip()
+                            else:
+                                # 降级方案: 找 font-weight: 500 的 div
+                                name_divs = item.locator('div[style*="font-weight: 500"]').all()
+                                if len(name_divs) > 0:
+                                    buyer_name = name_divs[0].text_content().strip()
+                        except Exception as name_err:
+                            logger.warning(f"poll_unread_conversations: [{idx}] 精确提取昵称失败: {name_err}")
 
-                        logger.info(f"poll_unread_conversations: [{idx}] 找到未读会话: '{buyer_name}' (未读: {unread_count})")
+                        # 再降级: 用旧逻辑（text_content + 正则切开头数字）
+                        if not buyer_name:
+                            item_text = item.text_content()
+                            buyer_name = item_text.strip()
+                            import re
+                            buyer_name = re.sub(r'^\d+\s*', '', buyer_name)
+                            logger.warning(f"poll_unread_conversations: [{idx}] 精确提取失败，降级用 text_content: '{buyer_name}'")
+
+                        logger.info(f"poll_unread_conversations: [{idx}] 提取到干净昵称: '{buyer_name}' (未读: {unread_count})")
 
                         # 系统号过滤
                         is_system = any(keyword in buyer_name for keyword in SYSTEM_ACCOUNT_BLACKLIST)

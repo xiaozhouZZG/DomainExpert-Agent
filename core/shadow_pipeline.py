@@ -102,7 +102,8 @@ def _generate_reply_with_rag(query: str, retrieval_results: list[dict]) -> str:
     context_parts = []
     for i, r in enumerate(retrieval_results[:5]):
         score = r.get("score", 0)
-        text = r.get("text", "")
+        # 兼容 content 和 text 两种字段名
+        text = r.get("content") or r.get("text", "")
         context_parts.append(f"[资料{i+1}] (相关度: {score:.2f})\n{text}")
     context_text = "\n\n".join(context_parts)
 

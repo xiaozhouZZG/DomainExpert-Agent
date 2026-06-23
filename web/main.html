@@ -58,7 +58,7 @@
                 <!-- 控制台 -->
                 <div style="margin:12px 20px 0; padding:14px 18px; background:var(--bg-secondary,#1e1e2e); border-radius:10px; border:1px solid var(--border-color,#333); display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
                     <div style="display:flex; align-items:center; gap:10px;">
-                        <span style="font-weight:600; font-size:15px;">自动客服</span>
+                        <span style="font-weight:600; font-size:15px; color:#e0e0e0;">自动客服</span>
                         <label style="position:relative; display:inline-block; width:48px; height:26px; cursor:pointer;">
                             <input type="checkbox" id="auto-reply-toggle" onchange="toggleAutoReply(this.checked)" style="display:none;">
                             <span id="toggle-track" style="position:absolute;inset:0;background:#555;border-radius:13px;transition:.3s;"></span>
@@ -74,7 +74,7 @@
 
                     <!-- 左栏：自动对话流 -->
                     <div style="flex:1; min-width:0; background:var(--bg-secondary,#1e1e2e); border-radius:10px; border:1px solid var(--border-color,#333); display:flex; flex-direction:column;">
-                        <div style="padding:10px 14px; border-bottom:1px solid var(--border-color,#333); font-weight:600; font-size:14px;">
+                        <div style="padding:10px 14px; border-bottom:1px solid var(--border-color,#333); font-weight:600; font-size:14px; color:#e0e0e0;">
                             自动对话流
                         </div>
                         <div id="auto-reply-feed" style="flex:1; overflow-y:auto; font-size:13px;">
@@ -84,7 +84,7 @@
 
                     <!-- 右栏：转人工接管区 -->
                     <div style="width:340px; background:var(--bg-secondary,#1e1e2e); border-radius:10px; border:1px solid var(--border-color,#333); display:flex; flex-direction:column;">
-                        <div style="padding:10px 14px; border-bottom:1px solid var(--border-color,#333); font-weight:600; font-size:14px; display:flex; justify-content:space-between; align-items:center;">
+                        <div style="padding:10px 14px; border-bottom:1px solid var(--border-color,#333); font-weight:600; font-size:14px; color:#e0e0e0; display:flex; justify-content:space-between; align-items:center;">
                             <span>需人工处理</span>
                             <button onclick="loadPendingHandoffs()" style="background:none; border:1px solid var(--border-color,#555); border-radius:4px; padding:2px 8px; font-size:12px; color:var(--text-secondary,#aaa); cursor:pointer;">刷新</button>
                         </div>

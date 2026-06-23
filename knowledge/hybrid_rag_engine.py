@@ -253,16 +253,41 @@ class HybridRAGEngine:
 
         # 运行混合检索
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            results = loop.run_until_complete(
-                self._hybrid_search_async(query, top_k, threshold, filter_dict)
-            )
-            loop.close()
+            # 检测是否已有事件循环在运行（如 Playwright browser_worker 线程）
+            try:
+                existing_loop = asyncio.get_running_loop()
+            except RuntimeError:
+                existing_loop = None
+
+            if existing_loop is not None:
+                # 已有事件循环运行中（如 Playwright 线程），
+                # 在独立线程中执行异步检索，避免事件循环冲突
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(self._run_search_in_new_loop, query, top_k, threshold, filter_dict)
+                    results = future.result(timeout=30)
+            else:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                results = loop.run_until_complete(
+                    self._hybrid_search_async(query, top_k, threshold, filter_dict)
+                )
+                loop.close()
             return results
         except Exception as e:
             logger.error(f"混合检索失败: {e}", exc_info=True)
             raise RuntimeError(f"RAG检索失败: {e}。请检查向量模型和索引状态。")
+
+    def _run_search_in_new_loop(self, query: str, top_k: int, threshold: float, filter_dict: dict):
+        """在独立线程中创建新事件循环执行异步检索，避免与 Playwright 事件循环冲突"""
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(
+                self._hybrid_search_async(query, top_k, threshold, filter_dict)
+            )
+        finally:
+            loop.close()
 
     async def _hybrid_search_async(
         self,

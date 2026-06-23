@@ -3,10 +3,16 @@
 
 读到买家未读 → 检索 → 护栏决策 → 生成草稿存 DB → 绝不真发
 
+架构：一趟扫描就地处理
+  poll_unread_conversations 点进会话清未读是不可逆的，
+  所以所有处理必须在第一次点开那一趟内完成。
+  实现方式：把处理逻辑作为回调 on_unread_message 传入 poll，
+  poll 在读到买家消息后立刻调用回调，绝不再扫第二次。
+
 铁律：
 1. 第一版只走影子模式：只生成草稿写进 DB，绝对不调用 send_reply
 2. 测试会话白名单：只处理指定买家，其他会话跳过
-3. 复用 poll_unread_conversations() 拿未读
+3. 复用 poll_unread_conversations() 拿未读（通过回调就地处理）
 4. 走 browser_worker 线程，sync Playwright 规矩
 """
 from __future__ import annotations
@@ -222,17 +228,20 @@ def _generate_draft_with_llm(query: str, retrieval_results: list[dict]) -> str:
 
 def run_shadow_pipeline() -> dict[str, Any]:
     """
-    影子模式编排器主入口
+    影子模式编排器主入口（一趟扫描就地处理）
 
-    流水线：
-    1. 调 poll 拿到 needs_reply=true 的会话
-    2. 白名单过滤
-    3. 关联/创建会话记录
-    4. 去重
-    5. 碰钱/敏感意图前置拦截
-    6. 检索三段式
-    7. 生成草稿 or 转人工
-    8. 全程不真发
+    架构：poll_unread_conversations 点进会话清未读是不可逆的，
+    所以所有处理（白名单过滤、去重、敏感意图拦截、检索、决策、存草稿）
+    必须在点进会话、读到买家消息的那一刻就地完成，绝不能"读完出来再扫一次"。
+
+    实现：把处理逻辑作为回调 on_unread_message 传入 poll_unread_conversations，
+    poll 在读到买家消息后立刻调用回调，一趟扫描完成所有工作。
+
+    铁律：
+    1. 只走影子模式：只生成草稿写进 DB，绝对不调用 send_reply
+    2. 测试会话白名单：只处理指定买家，其他会话跳过
+    3. 按 message_id 去重，别重复生成
+    4. worker 线程、sync Playwright 规矩、不 asyncio.run
 
     Returns:
         结构化结果，包含每个会话的 decision/score/草稿/转人工原因
@@ -240,56 +249,35 @@ def run_shadow_pipeline() -> dict[str, Any]:
     import httpx as _  # 确保可用
 
     logger.info("=" * 60)
-    logger.info("shadow_pipeline: 开始执行影子模式编排器")
+    logger.info("shadow_pipeline: 开始执行影子模式编排器（一趟扫描就地处理）")
     logger.info("shadow_pipeline: 【铁律】绝不调用 send_reply，绝不真发消息")
 
     pipeline_results = []
+    total_scanned = [0]  # 用列表包装以便回调内修改
 
-    # ===== 步骤 1: 调 poll 拿未读 =====
-    try:
-        from platforms.goofish_playwright import GoofishPlaywrightPlatform
-        platform = GoofishPlaywrightPlatform()
-        poll_result = platform.poll_unread_conversations()
-    except Exception as e:
-        logger.error(f"shadow_pipeline: poll 调用失败: {e}")
-        return {"status": "failed", "detail": f"poll failed: {e}", "results": []}
+    def on_unread_message(conv: dict) -> None:
+        """
+        回调：在 poll 点进会话、读到买家消息的那一刻就地处理。
 
-    poll_status = poll_result.get("status", "failed")
-    conversations = poll_result.get("conversations", [])
+        这个回调在 browser_worker 线程内执行，此时会话已被点开、
+        未读已清，所以必须在此刻完成所有决策和存储。
+        """
+        total_scanned[0] += 1
 
-    if poll_status != "ready":
-        logger.warning(f"shadow_pipeline: poll 返回非 ready 状态: {poll_status}")
-        return {
-            "status": poll_status,
-            "detail": poll_result.get("detail", ""),
-            "results": [],
-            "total_scanned": 0,
-        }
-
-    # 只保留 needs_reply=true 的会话
-    needs_reply = [c for c in conversations if c.get("needs_reply")]
-    logger.info(f"shadow_pipeline: poll 返回 {len(conversations)} 个会话，{len(needs_reply)} 个需要回复")
-
-    if not needs_reply:
-        logger.info("shadow_pipeline: 没有需要回复的会话，结束")
-        return {"status": "ready", "detail": "No conversations need reply", "results": [], "total_scanned": len(conversations)}
-
-    # ===== 步骤 2: 白名单过滤 =====
-    for conv in needs_reply:
         buyer_name = conv.get("buyer_name", "")
         last_buyer_msg = conv.get("last_buyer_msg", "")
         unread_count = conv.get("unread_count", 0)
 
-        # 白名单检查
+        # ===== 白名单过滤 =====
         if buyer_name not in SHADOW_WHITELIST:
             logger.info(f"shadow_pipeline: 跳过非白名单会话: '{buyer_name}'")
-            continue
+            return
 
         logger.info(f"shadow_pipeline: 处理白名单会话: '{buyer_name}' (未读: {unread_count}, 消息: '{last_buyer_msg}')")
 
-        # ===== 步骤 3: 关联真实会话 =====
+        # ===== 关联真实会话 =====
         conversation_id = _conversation_id_for(buyer_name)
-        logger.info(f"shadow_pipeline: 会话 ID: '{conversation_id}' (临时 key，待真实化)")
+        logger.info(f"shadow_pipeline: 会话 ID: '{conversation_id}'")
 
         _ensure_conversation(conversation_id, buyer_name)
 
@@ -298,7 +286,7 @@ def run_shadow_pipeline() -> dict[str, Any]:
         msg_id = _message_id_for(conversation_id, last_buyer_msg, now_iso)
         _save_buyer_message(msg_id, conversation_id, last_buyer_msg)
 
-        # ===== 步骤 4: 去重 =====
+        # ===== 去重 =====
         if _is_message_processed(msg_id):
             logger.info(f"shadow_pipeline: 消息已处理过 (msg_id={msg_id[:8]}...)，跳过")
             pipeline_results.append({
@@ -308,9 +296,9 @@ def run_shadow_pipeline() -> dict[str, Any]:
                 "reason": "消息已处理过，去重生效",
                 "message_id": msg_id[:8],
             })
-            continue
+            return
 
-        # ===== 步骤 5: 碰钱/敏感意图前置拦截 =====
+        # ===== 碰钱/敏感意图前置拦截 =====
         if _is_sensitive_intent(last_buyer_msg):
             logger.info(f"shadow_pipeline: 命中敏感意图拦截: '{last_buyer_msg}' → 转人工")
 
@@ -333,9 +321,9 @@ def run_shadow_pipeline() -> dict[str, Any]:
                 "score": None,
                 "message_id": msg_id[:8],
             })
-            continue
+            return
 
-        # ===== 步骤 6: 检索三段式 =====
+        # ===== 检索三段式 =====
         logger.info(f"shadow_pipeline: 开始检索: query='{last_buyer_msg}'")
         retrieval = search_with_confidence(query=last_buyer_msg, top_k=5)
 
@@ -345,7 +333,7 @@ def run_shadow_pipeline() -> dict[str, Any]:
 
         logger.info(f"shadow_pipeline: 检索结果: status={retrieval_status}, score={confidence_score:.4f}, hits={len(retrieval_results)}")
 
-        # ===== 步骤 7: 决策 =====
+        # ===== 决策 =====
         if retrieval_status == "high":
             # 高置信度 → 生成草稿
             logger.info(f"shadow_pipeline: 检索高置信度 ({confidence_score:.4f}) → 生成草稿")
@@ -443,15 +431,35 @@ def run_shadow_pipeline() -> dict[str, Any]:
                 "message_id": msg_id[:8],
             })
 
+    # ===== 一趟扫描：poll + 回调就地处理 =====
+    try:
+        from platforms.goofish_playwright import GoofishPlaywrightPlatform
+        platform = GoofishPlaywrightPlatform()
+        poll_result = platform.poll_unread_conversations(on_unread_message=on_unread_message)
+    except Exception as e:
+        logger.error(f"shadow_pipeline: poll 调用失败: {e}")
+        return {"status": "failed", "detail": f"poll failed: {e}", "results": []}
+
+    poll_status = poll_result.get("status", "failed")
+
+    if poll_status != "ready":
+        logger.warning(f"shadow_pipeline: poll 返回非 ready 状态: {poll_status}")
+        return {
+            "status": poll_status,
+            "detail": poll_result.get("detail", ""),
+            "results": [],
+            "total_scanned": 0,
+        }
+
     # ===== 最终确认：没有调用 send_reply =====
     logger.info("shadow_pipeline: ✓ 全程未调用 send_reply，未发送任何消息")
-    logger.info(f"shadow_pipeline: 处理完成，{len(pipeline_results)} 个会话有结果")
+    logger.info(f"shadow_pipeline: 处理完成，{len(pipeline_results)} 个会话有结果（一趟扫描就地处理）")
     logger.info("=" * 60)
 
     return {
         "status": "ready",
-        "detail": f"Processed {len(pipeline_results)} conversations",
+        "detail": f"Processed {len(pipeline_results)} conversations in single pass",
         "results": pipeline_results,
-        "total_scanned": len(conversations),
+        "total_scanned": total_scanned[0],
         "send_reply_called": False,  # 铁律：永远 false
     }

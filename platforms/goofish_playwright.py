@@ -653,12 +653,27 @@ class GoofishPlaywrightPlatform:
             logger.warning(f"_save_failure_screenshot: 截图失败: {e}")
             return None
 
-    def poll_unread_conversations(self) -> List[Dict[str, Any]]:
+    def poll_unread_conversations(
+        self,
+        on_unread_message: Optional[Callable[[Dict[str, Any]], None]] = None,
+    ) -> List[Dict[str, Any]]:
         """
         轮询未读会话（影子模式：只读不发）
 
         遍历会话列表，找出有未读消息且最后一条是买家消息的会话。
         【绝不发送消息，只读取+记录】
+
+        Args:
+            on_unread_message: 回调函数，在点进会话、读到买家消息的那一刻就地调用。
+                回调接收单个参数: {
+                    "buyer_name": str,
+                    "last_buyer_msg": str,
+                    "unread_count": int,
+                    "needs_reply": bool,
+                    "last_msg_direction": "left" | "right"
+                }
+                如果提供回调，则在此函数内完成所有处理（检索、决策、存草稿等），
+                避免二次poll抓空。
 
         Returns:
             [
@@ -670,6 +685,8 @@ class GoofishPlaywrightPlatform:
                 },
                 ...
             ]
+            注意：如果提供了 on_unread_message 回调，返回的结果可能不完整（回调自行处理），
+            调用方应检查回调的副作用而非依赖返回值。
         """
         # 系统号黑名单（宁漏勿杀，只过滤明确的系统/平台号）
         SYSTEM_ACCOUNT_BLACKLIST = [
@@ -856,13 +873,24 @@ class GoofishPlaywrightPlatform:
                             last_msg_direction = "left"
                             logger.info(f"poll_unread_conversations: [{idx}] ✓ 买家在等回复: '{last_buyer_msg}'")
 
-                            results.append({
+                            conv_data = {
                                 "buyer_name": buyer_name,
                                 "last_buyer_msg": last_buyer_msg,
                                 "unread_count": unread_count,
                                 "needs_reply": True,
                                 "last_msg_direction": last_msg_direction
-                            })
+                            }
+                            results.append(conv_data)
+
+                            # 【一趟扫描就地处理】回调在点进会话、读到消息的那一刻立刻执行
+                            # 避免二次poll抓空（点开会话清未读是不可逆的）
+                            if on_unread_message is not None:
+                                try:
+                                    logger.info(f"poll_unread_conversations: [{idx}] 就地调用回调处理: '{buyer_name}'")
+                                    on_unread_message(conv_data)
+                                    logger.info(f"poll_unread_conversations: [{idx}] 回调处理完成: '{buyer_name}'")
+                                except Exception as cb_err:
+                                    logger.error(f"poll_unread_conversations: [{idx}] 回调处理失败: '{buyer_name}' - {cb_err}")
 
                         elif is_self_msg:
                             last_msg_direction = "right"

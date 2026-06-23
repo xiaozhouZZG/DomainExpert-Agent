@@ -75,10 +75,31 @@ async def lifespan(app: FastAPI):
     from knowledge.processing_queue import start_processing_queue
     start_processing_queue()
 
+    # 自动回复循环：启动时检查是否之前开着，恢复运行
+    try:
+        from database.connection import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT value FROM system_config WHERE key = 'auto_reply_enabled'")
+        row = cursor.fetchone()
+        enabled = row and row[0] == "true"
+        conn.close()
+
+        if enabled:
+            from core.auto_reply_orchestrator import start_auto_reply
+            result = start_auto_reply()
+            logger.info("自动客服恢复启动: %s", result)
+    except Exception as e:
+        logger.warning("自动客服恢复启动失败（可能表不存在）: %s", e)
+
     try:
         yield
     finally:
         # 关闭时
+        from core.auto_reply_orchestrator import stop_auto_reply
+        stop_auto_reply()
+        logger.info("自动客服已停止")
+
         shutdown_browser_worker()
         shutdown_goofish_browser_manager()
 

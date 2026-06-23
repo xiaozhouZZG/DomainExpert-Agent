@@ -1150,6 +1150,50 @@ async def auto_reply():
         }
 
 
+@router.get("/auto-reply/handoffs")
+async def get_pending_handoffs():
+    """获取待人工处理的会话列表"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT c.conversation_id, c.buyer_name, c.last_intent, c.updated_at,
+                   (SELECT content FROM xianyu_messages WHERE conversation_id = c.conversation_id AND direction = 'buyer' ORDER BY created_at DESC LIMIT 1) as last_msg
+            FROM xianyu_conversations c
+            WHERE c.status = 'pending_handoff'
+            ORDER BY c.updated_at DESC
+            LIMIT 20
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+        handoffs = []
+        for r in rows:
+            handoffs.append({
+                "conversation_id": r[0],
+                "buyer_name": r[1],
+                "reason": r[2],
+                "updated_at": r[3],
+                "last_msg": r[4] or "",
+            })
+        return {"handoffs": handoffs}
+    except Exception as e:
+        logger.exception("get_pending_handoffs failed")
+        return {"handoffs": [], "error": str(e)}
+
+
+@router.post("/auto-reply/handoff/resolve")
+async def resolve_handoff(conversation_id: str):
+    """标记转人工会话已处理"""
+    try:
+        from core.conversation_status import handoff_to_human, resolve_conversation
+        handoff_to_human(conversation_id)
+        resolve_conversation(conversation_id)
+        return {"status": "ok", "message": "已标记为已处理"}
+    except Exception as e:
+        logger.exception("resolve_handoff failed")
+        return {"status": "error", "detail": str(e)}
+
+
 @router.get("/shadow-pipeline/db-check")
 async def shadow_pipeline_db_check(buyer_name: str = "海王星上蹿下跳的豆浆"):
     """

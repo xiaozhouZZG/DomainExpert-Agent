@@ -43,37 +43,54 @@
 
         <!-- 右侧内容区 -->
         <main class="content-area">
-            <!-- 消息模块 -->
+            <!-- 消息模块 = 智能客服工作台 -->
             <div id="module-messages" class="module active">
                 <div class="module-header">
-                    <h2>买家消息</h2>
+                    <h2>智能客服工作台</h2>
                     <button class="btn-refresh" onclick="loadConversations()">刷新消息</button>
                 </div>
 
-                <!-- 自动客服面板 -->
-                <div id="auto-reply-panel" style="margin: 0 20px 16px; padding: 16px; background: var(--bg-secondary, #1e1e2e); border-radius: 10px; border: 1px solid var(--border-color, #333);">
-                    <!-- need_login 红字提示 -->
-                    <div id="need-login-banner" style="display:none; margin-bottom:12px; padding:10px 14px; background:#3a1515; border:1px solid #ff4444; border-radius:6px; color:#ff6666; font-size:14px;">
-                        闲鱼登录已失效，请在浏览器窗口扫码
+                <!-- need_login 红字提示 -->
+                <div id="need-login-banner" style="display:none; margin:0 20px 0; padding:10px 14px; background:#3a1515; border:1px solid #ff4444; border-radius:6px; color:#ff6666; font-size:14px;">
+                    闲鱼登录已失效，请在浏览器窗口扫码
+                </div>
+
+                <!-- 控制台 -->
+                <div style="margin:12px 20px 0; padding:14px 18px; background:var(--bg-secondary,#1e1e2e); border-radius:10px; border:1px solid var(--border-color,#333); display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span style="font-weight:600; font-size:15px;">自动客服</span>
+                        <label style="position:relative; display:inline-block; width:48px; height:26px; cursor:pointer;">
+                            <input type="checkbox" id="auto-reply-toggle" onchange="toggleAutoReply(this.checked)" style="display:none;">
+                            <span id="toggle-track" style="position:absolute;inset:0;background:#555;border-radius:13px;transition:.3s;"></span>
+                            <span id="toggle-thumb" style="position:absolute;top:3px;left:3px;width:20px;height:20px;background:#fff;border-radius:50%;transition:.3s;"></span>
+                        </label>
                     </div>
-                    <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
-                        <div style="display:flex; align-items:center; gap:10px;">
-                            <span style="font-weight:600; font-size:15px;">自动客服</span>
-                            <label style="position:relative; display:inline-block; width:48px; height:26px; cursor:pointer;">
-                                <input type="checkbox" id="auto-reply-toggle" onchange="toggleAutoReply(this.checked)" style="display:none;">
-                                <span id="toggle-track" style="position:absolute;inset:0;background:#555;border-radius:13px;transition:.3s;"></span>
-                                <span id="toggle-thumb" style="position:absolute;top:3px;left:3px;width:20px;height:20px;background:#fff;border-radius:50%;transition:.3s;"></span>
-                            </label>
+                    <div id="auto-reply-status" style="font-size:13px; color:var(--text-secondary,#aaa);">已停止</div>
+                    <div id="auto-reply-last-scan" style="font-size:12px; color:var(--text-muted,#666); margin-left:auto;"></div>
+                </div>
+
+                <!-- 两栏布局：自动对话流 | 转人工接管区 -->
+                <div style="margin:12px 20px 16px; display:flex; gap:12px; min-height:400px;">
+
+                    <!-- 左栏：自动对话流 -->
+                    <div style="flex:1; min-width:0; background:var(--bg-secondary,#1e1e2e); border-radius:10px; border:1px solid var(--border-color,#333); display:flex; flex-direction:column;">
+                        <div style="padding:10px 14px; border-bottom:1px solid var(--border-color,#333); font-weight:600; font-size:14px;">
+                            自动对话流
                         </div>
-                        <div id="auto-reply-status" style="font-size:13px; color:var(--text-secondary, #aaa);">
-                            已停止
-                        </div>
-                        <div id="auto-reply-last-scan" style="font-size:12px; color:var(--text-muted, #666); margin-left:auto;">
+                        <div id="auto-reply-feed" style="flex:1; overflow-y:auto; font-size:13px;">
+                            <div style="color:var(--text-muted,#666); text-align:center; padding:20px;">开启自动客服后，处理记录会出现在这里</div>
                         </div>
                     </div>
-                    <!-- 消息流 -->
-                    <div id="auto-reply-feed" style="margin-top:12px; max-height:300px; overflow-y:auto; font-size:13px;">
-                        <div style="color:var(--text-muted, #666); text-align:center; padding:12px;">开启自动客服后，处理记录会出现在这里</div>
+
+                    <!-- 右栏：转人工接管区 -->
+                    <div style="width:340px; background:var(--bg-secondary,#1e1e2e); border-radius:10px; border:1px solid var(--border-color,#333); display:flex; flex-direction:column;">
+                        <div style="padding:10px 14px; border-bottom:1px solid var(--border-color,#333); font-weight:600; font-size:14px; display:flex; justify-content:space-between; align-items:center;">
+                            <span>需人工处理</span>
+                            <button onclick="loadPendingHandoffs()" style="background:none; border:1px solid var(--border-color,#555); border-radius:4px; padding:2px 8px; font-size:12px; color:var(--text-secondary,#aaa); cursor:pointer;">刷新</button>
+                        </div>
+                        <div id="handoff-list" style="flex:1; overflow-y:auto; font-size:13px;">
+                            <div style="color:var(--text-muted,#666); text-align:center; padding:20px;">机器人搞不定的会话排在这里</div>
+                        </div>
                     </div>
                 </div>
 

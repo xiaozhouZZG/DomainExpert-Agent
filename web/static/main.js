@@ -884,10 +884,12 @@ async function refreshAutoReplyFeed() {
 function startAutoReplyRefresh() {
     refreshAutoReplyStatus();
     refreshAutoReplyFeed();
+    loadPendingHandoffs();
     if (autoReplyRefreshTimer) clearInterval(autoReplyRefreshTimer);
     autoReplyRefreshTimer = setInterval(() => {
         refreshAutoReplyStatus();
         refreshAutoReplyFeed();
+        loadPendingHandoffs();
     }, 3000);
 }
 
@@ -898,10 +900,74 @@ function stopAutoReplyRefresh() {
     }
 }
 
+// ==================== 转人工接管区 ====================
+
+async function loadPendingHandoffs() {
+    try {
+        const result = await api('/api/admin/auto-reply/handoffs');
+        const listEl = document.getElementById('handoff-list');
+        const handoffs = result.handoffs || [];
+
+        if (handoffs.length === 0) {
+            listEl.innerHTML = '<div style="color:var(--text-muted,#666); text-align:center; padding:20px;">机器人搞不定的会话排在这里</div>';
+            return;
+        }
+
+        let html = '';
+        handoffs.forEach(h => {
+            const time = h.updated_at ? h.updated_at.substring(11, 19) : '';
+            const reasonLabel = {
+                'sensitive_intent': '碰钱/敏感',
+                'retrieval_gray': '答不准',
+                'retrieval_not_found': '没命中',
+                'llm_generation_failed': '生成失败',
+                'send_failed:uncertain': '发送不确定',
+                'send_failed:failed': '发送失败',
+            }[h.reason] || h.reason || '其他';
+
+            html += `
+                <div style="padding:10px; border-bottom:1px solid var(--border-color,#333);">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                        <span style="font-weight:600; font-size:13px;">${escapeHtml(h.buyer_name)}</span>
+                        <span style="font-size:11px; color:var(--text-muted,#666);">${time}</span>
+                    </div>
+                    <div style="font-size:12px; color:#f59e0b; margin-bottom:4px;">
+                        原因: ${escapeHtml(reasonLabel)}
+                    </div>
+                    <div style="font-size:13px; color:var(--text-secondary,#aaa); margin-bottom:8px; padding:6px 8px; background:var(--bg-primary,#252536); border-radius:4px;">
+                        ${escapeHtml(h.last_msg)}
+                    </div>
+                    <button onclick="markHandoffResolved('${escapeHtml(h.conversation_id)}')" style="background:#4ade80; color:#000; border:none; border-radius:4px; padding:4px 12px; font-size:12px; cursor:pointer; width:100%;">
+                        已处理（标记解决）
+                    </button>
+                </div>
+            `;
+        });
+
+        listEl.innerHTML = html;
+    } catch (e) {
+        console.error('loadPendingHandoffs error:', e);
+    }
+}
+
+async function markHandoffResolved(conversationId) {
+    try {
+        const result = await api('/api/admin/auto-reply/handoff/resolve?conversation_id=' + encodeURIComponent(conversationId), { method: 'POST' });
+        if (result.status === 'ok') {
+            loadPendingHandoffs();
+        } else {
+            alert('操作失败: ' + (result.detail || JSON.stringify(result)));
+        }
+    } catch (e) {
+        alert('请求失败: ' + e.message);
+    }
+}
+
 // 页面加载时初始化自动客服状态
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         refreshAutoReplyStatus();
         refreshAutoReplyFeed();
+        loadPendingHandoffs();
     }, 500);
 });

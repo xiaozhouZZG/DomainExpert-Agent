@@ -1147,6 +1147,25 @@ async def browser_status():
         return {"status": "error", "detail": str(e)}
 
 
+@router.post("/browser/release-lock")
+async def browser_release_lock():
+    """释放浏览器 profile 锁（杀占用进程 + 清理 lock 文件）"""
+    try:
+        from platforms.browser_manager import get_goofish_browser_manager
+        mgr = get_goofish_browser_manager()
+        result = mgr.force_restart()
+
+        # 清除自动客服的 profile_locked 状态
+        if result.get("status") in ("released", "ok"):
+            from core.auto_reply_orchestrator import clear_need_login_status
+            clear_need_login_status()
+
+        return result
+    except Exception as e:
+        logger.exception("browser_release_lock failed")
+        return {"status": "error", "detail": str(e)}
+
+
 @router.post("/browser/restart")
 async def browser_restart():
     """强制重启浏览器会话（清理残留进程 + 重启浏览器）"""

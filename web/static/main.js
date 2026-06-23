@@ -800,7 +800,7 @@ async function refreshAutoReplyStatus() {
         const lastScanEl = document.getElementById('auto-reply-last-scan');
         const banner = document.getElementById('need-login-banner');
         const alertText = document.getElementById('alert-text');
-        const restartBtn = document.getElementById('restart-browser-btn');
+        const releaseBtn = document.getElementById('release-lock-btn');
         const toggle = document.getElementById('auto-reply-toggle');
 
         const status = result.status || 'stopped';
@@ -811,15 +811,15 @@ async function refreshAutoReplyStatus() {
             statusEl.textContent = '需扫码登录';
             statusEl.style.color = '#ff6666';
             alertText.textContent = '闲鱼登录已失效，请在浏览器窗口扫码';
-            restartBtn.style.display = 'none';
+            releaseBtn.style.display = 'none';
             banner.style.display = 'flex';
             updateAutoReplyUI(false);
             stopAutoReplyRefresh();
         } else if (status === 'profile_locked') {
             statusEl.textContent = '浏览器被占用';
             statusEl.style.color = '#ff6666';
-            alertText.textContent = '浏览器 profile 被其他进程占用，请点击"重启浏览器会话"或手动关闭残留 Chrome 进程';
-            restartBtn.style.display = 'inline-block';
+            alertText.textContent = '浏览器 profile 被旧进程占用，请点击"释放浏览器锁"一键恢复';
+            releaseBtn.style.display = 'inline-block';
             banner.style.display = 'flex';
             updateAutoReplyUI(false);
             stopAutoReplyRefresh();
@@ -977,27 +977,32 @@ async function markHandoffResolved(conversationId) {
 
 // ==================== 浏览器会话管理 ====================
 
-async function restartBrowser() {
-    const btn = document.getElementById('restart-browser-btn');
+async function releaseBrowserLock() {
+    const btn = document.getElementById('release-lock-btn');
     btn.disabled = true;
-    btn.textContent = '重启中...';
+    btn.textContent = '释放中...';
 
     try {
-        const result = await api('/api/admin/browser/restart', { method: 'POST' });
-        if (result.status === 'ok') {
-            alert('浏览器会话已重启。请刷新页面后重新开启自动客服。');
+        const result = await api('/api/admin/browser/release-lock', { method: 'POST' });
+        if (result.status === 'released' || result.status === 'ok') {
+            const killed = result.killed_pids || [];
+            const removed = result.removed_locks || [];
+            alert(`浏览器锁已释放！\n已终止进程: ${killed.join(', ') || '无'}\n已清理锁文件: ${removed.length} 个\n\n请刷新页面后重新开启自动客服。`);
             setTimeout(() => {
                 refreshAutoReplyStatus();
                 refreshAutoReplyFeed();
-            }, 2000);
+            }, 1000);
+        } else if (result.status === 'still_locked') {
+            const remaining = result.remaining_pids || [];
+            alert(`仍有进程占用 profile: PIDs ${remaining.join(', ')}\n请手动关闭这些 Chrome 进程后重试。`);
         } else {
-            alert('重启失败: ' + (result.detail || JSON.stringify(result)));
+            alert('释放失败: ' + (result.detail || JSON.stringify(result)));
         }
     } catch (e) {
         alert('请求失败: ' + e.message);
     } finally {
         btn.disabled = false;
-        btn.textContent = '重启浏览器会话';
+        btn.textContent = '释放浏览器锁';
     }
 }
 

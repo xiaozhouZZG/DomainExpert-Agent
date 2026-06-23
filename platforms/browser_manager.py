@@ -202,38 +202,90 @@ class BrowserManager:
         """
         强制重启浏览器会话：
         1. 关闭当前 context/browser
-        2. 清理 stale lock 文件
-        3. 等待 2 秒
-        4. 不自动启动新浏览器（等下次 with_page 时启动）
+        2. 杀掉占用 goofish_profile 的旧进程
+        3. 清理 stale lock 文件
+        4. 等待 2 秒
+        5. 不自动启动新浏览器（等下次 with_page 时启动）
         """
         import time as _time
         with self._lock:
-            # 1. 优雅关闭
+            # 1. 优雅关闭自己的 context
             self._stop_locked()
             logger.info("force_restart: 已关闭当前浏览器会话")
 
-        # 2. 清理 stale lock（不在 lock 内，因为 _stop_locked 已释放 context）
-        removed = []
-        lock_paths = [self.user_data_dir / name for name in _PROFILE_LOCK_NAMES if (self.user_data_dir / name).exists()]
-        for lock_path in lock_paths:
-            try:
-                if lock_path.is_dir():
-                    shutil.rmtree(lock_path)
-                else:
-                    lock_path.unlink()
-                removed.append(str(lock_path))
-                logger.info("force_restart: 清理 lock 文件: %s", lock_path)
-            except Exception as e:
-                logger.warning("force_restart: 清理 lock 文件失败: %s, %s", lock_path, e)
+        # 2. 杀掉占用 profile 的旧进程
+        killed_pids = self._kill_profile_owners()
 
-        # 3. 等 2 秒
+        # 3. 清理 stale lock 文件
+        removed = self._clear_stale_profile_locks_locked()
+
+        # 4. 等 2 秒让进程完全退出
         _time.sleep(2)
 
+        # 5. 再检查一次是否还有活进程
+        remaining_pids = self._profile_owner_pids_locked()
+
+        if remaining_pids:
+            return {
+                "status": "still_locked",
+                "message": f"仍有进程占用 profile: PIDs {remaining_pids}，请手动关闭",
+                "killed_pids": killed_pids,
+                "removed_locks": removed,
+                "remaining_pids": remaining_pids,
+            }
+
         return {
-            "status": "ok",
+            "status": "released",
             "message": "浏览器会话已重启，下次操作时自动启动新浏览器",
+            "killed_pids": killed_pids,
             "removed_locks": removed,
         }
+
+    def _kill_profile_owners(self) -> list[int]:
+        """杀掉占用 goofish_profile 的其他进程（用 psutil）"""
+        killed = []
+        try:
+            import psutil
+        except ImportError:
+            logger.warning("_kill_profile_owners: psutil 未安装，无法杀进程")
+            return killed
+
+        profile_str = str(self.user_data_dir).lower()
+        current_pid = os.getpid()
+
+        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+            try:
+                pid = proc.info['pid']
+                if pid == current_pid:
+                    continue
+                name = (proc.info['name'] or '').lower()
+                # 只杀 Chrome/Chromium 进程
+                if name not in ('chrome.exe', 'chromium.exe', 'chrome', 'chromium'):
+                    continue
+                cmdline = ' '.join(proc.info['cmdline'] or []).lower()
+                if profile_str in cmdline:
+                    logger.info(f"_kill_profile_owners: 终止 PID={pid} name={proc.info['name']}")
+                    proc.terminate()
+                    killed.append(pid)
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                continue
+            except Exception as e:
+                logger.warning(f"_kill_profile_owners: 检查进程失败: {e}")
+
+        # 等待 terminate 生效
+        if killed:
+            time.sleep(1)
+            # 对还没退出的进程 kill
+            for pid in killed:
+                try:
+                    p = psutil.Process(pid)
+                    if p.is_running():
+                        logger.info(f"_kill_profile_owners: 强制 kill PID={pid}")
+                        p.kill()
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+
+        return killed
 
     def save_storage_state(self) -> None:
         with self._lock:

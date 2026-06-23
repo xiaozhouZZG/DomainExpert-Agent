@@ -1070,6 +1070,63 @@ async def poll_messages():
         }
 
 
+# ==================== 自动客服接口 ====================
+
+@router.post("/auto-reply/start")
+async def auto_reply_start():
+    """启动自动客服（常驻后台循环）"""
+    try:
+        from core.auto_reply_orchestrator import start_auto_reply
+        return start_auto_reply()
+    except Exception as e:
+        logger.exception("auto_reply_start failed")
+        return {"status": "error", "detail": str(e)}
+
+
+@router.post("/auto-reply/stop")
+async def auto_reply_stop():
+    """停止自动客服"""
+    try:
+        from core.auto_reply_orchestrator import stop_auto_reply
+        return stop_auto_reply()
+    except Exception as e:
+        logger.exception("auto_reply_stop failed")
+        return {"status": "error", "detail": str(e)}
+
+
+@router.get("/auto-reply/status")
+async def auto_reply_status():
+    """获取自动客服状态"""
+    try:
+        from core.auto_reply_orchestrator import get_auto_reply_status
+        return get_auto_reply_status()
+    except Exception as e:
+        logger.exception("auto_reply_status failed")
+        return {"status": "error", "detail": str(e)}
+
+
+@router.get("/auto-reply/feed")
+async def auto_reply_feed(limit: int = 20):
+    """获取自动客服消息流"""
+    try:
+        from core.auto_reply_orchestrator import get_auto_reply_feed
+        return {"messages": get_auto_reply_feed(limit)}
+    except Exception as e:
+        logger.exception("auto_reply_feed failed")
+        return {"messages": [], "error": str(e)}
+
+
+@router.post("/auto-reply/clear-need-login")
+async def auto_reply_clear_need_login():
+    """清除 need_login 状态（扫码后调用）"""
+    try:
+        from core.auto_reply_orchestrator import clear_need_login_status
+        return clear_need_login_status()
+    except Exception as e:
+        logger.exception("clear_need_login failed")
+        return {"status": "error", "detail": str(e)}
+
+
 @router.post("/auto-reply")
 async def auto_reply():
     """

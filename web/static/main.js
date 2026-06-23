@@ -752,3 +752,156 @@ function renderConversationMessages(data, buyerNick) {
 
     container.innerHTML = html;
 }
+
+// ==================== 自动客服 ====================
+
+let autoReplyRefreshTimer = null;
+
+async function toggleAutoReply(enabled) {
+    const toggle = document.getElementById('auto-reply-toggle');
+    try {
+        const result = await api(enabled ? '/api/admin/auto-reply/start' : '/api/admin/auto-reply/stop', { method: 'POST' });
+        if (result.status === 'ok') {
+            updateAutoReplyUI(enabled);
+            if (enabled) startAutoReplyRefresh();
+            else stopAutoReplyRefresh();
+        } else {
+            alert('操作失败: ' + (result.detail || JSON.stringify(result)));
+            toggle.checked = !enabled;
+        }
+    } catch (e) {
+        alert('请求失败: ' + e.message);
+        toggle.checked = !enabled;
+    }
+}
+
+function updateAutoReplyUI(enabled) {
+    const toggle = document.getElementById('auto-reply-toggle');
+    const track = document.getElementById('toggle-track');
+    const thumb = document.getElementById('toggle-thumb');
+    const statusEl = document.getElementById('auto-reply-status');
+
+    toggle.checked = enabled;
+    if (enabled) {
+        track.style.background = '#4ade80';
+        thumb.style.left = '25px';
+        statusEl.textContent = '运行中';
+        statusEl.style.color = '#4ade80';
+    } else {
+        track.style.background = '#555';
+        thumb.style.left = '3px';
+    }
+}
+
+async function refreshAutoReplyStatus() {
+    try {
+        const result = await api('/api/admin/auto-reply/status');
+        const statusEl = document.getElementById('auto-reply-status');
+        const lastScanEl = document.getElementById('auto-reply-last-scan');
+        const banner = document.getElementById('need-login-banner');
+        const toggle = document.getElementById('auto-reply-toggle');
+
+        const status = result.status || 'stopped';
+        const enabled = result.enabled || false;
+
+        // 更新状态文字
+        if (status === 'need_login') {
+            statusEl.textContent = '需扫码登录';
+            statusEl.style.color = '#ff6666';
+            banner.style.display = 'block';
+            updateAutoReplyUI(false);
+            stopAutoReplyRefresh();
+        } else if (status === 'running') {
+            statusEl.textContent = '运行中';
+            statusEl.style.color = '#4ade80';
+            banner.style.display = 'none';
+            updateAutoReplyUI(true);
+        } else {
+            statusEl.textContent = '已停止';
+            statusEl.style.color = 'var(--text-secondary, #aaa)';
+            banner.style.display = 'none';
+            updateAutoReplyUI(false);
+        }
+
+        // 更新上次扫描时间
+        if (result.last_scan) {
+            lastScanEl.textContent = '上次扫描: ' + result.last_scan.substring(11, 19);
+        }
+
+        // 同步 toggle 状态
+        toggle.checked = enabled && status === 'running';
+
+    } catch (e) {
+        console.error('refreshAutoReplyStatus error:', e);
+    }
+}
+
+async function refreshAutoReplyFeed() {
+    try {
+        const result = await api('/api/admin/auto-reply/feed?limit=20');
+        const feedEl = document.getElementById('auto-reply-feed');
+        const messages = result.messages || [];
+
+        if (messages.length === 0) {
+            feedEl.innerHTML = '<div style="color:var(--text-muted, #666); text-align:center; padding:12px;">开启自动客服后，处理记录会出现在这里</div>';
+            return;
+        }
+
+        let html = '';
+        messages.forEach(m => {
+            const actionLabel = m.action === 'reply' ? '自动回复' : (m.action === 'handoff' ? '转人工' : m.action);
+            const actionColor = m.action === 'reply' ? '#4ade80' : '#f59e0b';
+            const time = m.timestamp ? m.timestamp.substring(11, 19) : '';
+
+            html += `
+                <div style="padding:10px; border-bottom:1px solid var(--border-color, #333);">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                        <span style="font-weight:600;">${escapeHtml(m.buyer_name || '买家')}</span>
+                        <span style="font-size:12px; color:var(--text-muted, #666);">${time}</span>
+                    </div>
+                    <div style="font-size:13px; margin-bottom:6px;">
+                        <span style="color:var(--text-secondary, #aaa);">收到:</span>
+                        ${escapeHtml(m.buyer_msg || '')}
+                    </div>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <span style="padding:2px 8px; background:${actionColor}20; color:${actionColor}; border-radius:4px; font-size:12px;">
+                            ${actionLabel}
+                        </span>
+                        ${m.score ? `<span style="font-size:11px; color:var(--text-muted, #666);">score: ${m.score}</span>` : ''}
+                        ${m.reason ? `<span style="font-size:11px; color:var(--text-muted, #666);">${escapeHtml(m.reason)}</span>` : ''}
+                    </div>
+                    ${m.reply ? `<div style="margin-top:6px; padding:8px; background:var(--bg-primary, #252536); border-radius:6px; font-size:13px;">${escapeHtml(m.reply)}</div>` : ''}
+                </div>
+            `;
+        });
+
+        feedEl.innerHTML = html;
+    } catch (e) {
+        console.error('refreshAutoReplyFeed error:', e);
+    }
+}
+
+function startAutoReplyRefresh() {
+    refreshAutoReplyStatus();
+    refreshAutoReplyFeed();
+    if (autoReplyRefreshTimer) clearInterval(autoReplyRefreshTimer);
+    autoReplyRefreshTimer = setInterval(() => {
+        refreshAutoReplyStatus();
+        refreshAutoReplyFeed();
+    }, 3000);
+}
+
+function stopAutoReplyRefresh() {
+    if (autoReplyRefreshTimer) {
+        clearInterval(autoReplyRefreshTimer);
+        autoReplyRefreshTimer = null;
+    }
+}
+
+// 页面加载时初始化自动客服状态
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        refreshAutoReplyStatus();
+        refreshAutoReplyFeed();
+    }, 500);
+});

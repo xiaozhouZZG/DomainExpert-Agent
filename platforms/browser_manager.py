@@ -200,46 +200,52 @@ class BrowserManager:
 
     def force_restart(self) -> dict[str, Any]:
         """
-        强制重启浏览器会话：
+        强制重启浏览器会话（通过 browser_worker 线程执行，避免 asyncio loop 冲突）：
         1. 关闭当前 context/browser
         2. 杀掉占用 goofish_profile 的旧进程
         3. 清理 stale lock 文件
         4. 等待 2 秒
         5. 不自动启动新浏览器（等下次 with_page 时启动）
         """
-        import time as _time
-        with self._lock:
-            # 1. 优雅关闭自己的 context
-            self._stop_locked()
-            logger.info("force_restart: 已关闭当前浏览器会话")
+        from platforms.browser_worker import get_browser_worker
+        worker = get_browser_worker()
 
-        # 2. 杀掉占用 profile 的旧进程
-        killed_pids = self._kill_profile_owners()
+        def _do_restart():
+            import time as _time
+            with self._lock:
+                # 1. 优雅关闭自己的 context
+                self._stop_locked()
+                logger.info("force_restart: 已关闭当前浏览器会话")
 
-        # 3. 清理 stale lock 文件
-        removed = self._clear_stale_profile_locks_locked()
+            # 2. 杀掉占用 profile 的旧进程
+            killed_pids = self._kill_profile_owners()
 
-        # 4. 等 2 秒让进程完全退出
-        _time.sleep(2)
+            # 3. 清理 stale lock 文件
+            removed = self._clear_stale_profile_locks_locked()
 
-        # 5. 再检查一次是否还有活进程
-        remaining_pids = self._profile_owner_pids_locked()
+            # 4. 等 2 秒让进程完全退出
+            _time.sleep(2)
 
-        if remaining_pids:
+            # 5. 再检查一次是否还有活进程
+            remaining_pids = self._profile_owner_pids_locked()
+
+            if remaining_pids:
+                return {
+                    "status": "still_locked",
+                    "message": f"仍有进程占用 profile: PIDs {remaining_pids}，请手动关闭",
+                    "killed_pids": killed_pids,
+                    "removed_locks": removed,
+                    "remaining_pids": remaining_pids,
+                }
+
             return {
-                "status": "still_locked",
-                "message": f"仍有进程占用 profile: PIDs {remaining_pids}，请手动关闭",
+                "status": "released",
+                "message": "浏览器会话已重启，下次操作时自动启动新浏览器",
                 "killed_pids": killed_pids,
                 "removed_locks": removed,
-                "remaining_pids": remaining_pids,
             }
 
-        return {
-            "status": "released",
-            "message": "浏览器会话已重启，下次操作时自动启动新浏览器",
-            "killed_pids": killed_pids,
-            "removed_locks": removed,
-        }
+        return worker.execute(_do_restart)
 
     def _kill_profile_owners(self) -> list[int]:
         """杀掉占用 goofish_profile 的其他进程（用 psutil）"""

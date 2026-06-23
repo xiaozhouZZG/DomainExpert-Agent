@@ -1131,17 +1131,20 @@ async def auto_reply_clear_need_login():
 async def browser_status():
     """获取浏览器状态"""
     try:
+        from platforms.browser_worker import get_browser_worker
         from platforms.browser_manager import get_goofish_browser_manager
         mgr = get_goofish_browser_manager()
-        is_started = mgr.is_started()
-        is_locked = mgr.is_profile_locked()
-        owner_pids = mgr.get_profile_owner_pids()
+        worker = get_browser_worker()
 
-        return {
-            "browser_started": is_started,
-            "profile_locked": is_locked,
-            "owner_pids": owner_pids if is_locked else [],
-        }
+        # 通过 worker 线程获取状态，避免 asyncio loop 冲突
+        def _get_status():
+            return {
+                "browser_started": mgr.is_started(),
+                "profile_locked": mgr.is_profile_locked(),
+                "owner_pids": mgr.get_profile_owner_pids() if mgr.is_profile_locked() else [],
+            }
+
+        return worker.execute(_get_status)
     except Exception as e:
         logger.exception("browser_status failed")
         return {"status": "error", "detail": str(e)}

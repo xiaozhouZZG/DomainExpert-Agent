@@ -530,9 +530,9 @@ class GoofishPlaywrightPlatform:
                 if "/im" not in current_url:
                     logger.info(f"ensure_im_ready: 不在 IM 页面，导航到 {IM_URL}")
                     try:
-                        page.goto(IM_URL, wait_until="commit", timeout=10000)
+                        page.goto(IM_URL, wait_until="commit", timeout=20000)
                         logger.info("ensure_im_ready: 导航到 IM 页面完成（commit）")
-                        time.sleep(2)  # 给页面一点渲染时间
+                        time.sleep(3)  # 给页面更多渲染时间
                     except Exception as e:
                         logger.warning(f"ensure_im_ready: 导航失败: {e}")
                         if heal_round < max_heal:
@@ -554,10 +554,10 @@ class GoofishPlaywrightPlatform:
                     logger.warning(f"ensure_im_ready: 检测 localStorage 失败: {e}")
                     local_storage_count = 0
 
-                # 步骤4: 轮询等会话列表出现（10s）
+                # 步骤4: 轮询等会话列表出现（20s）
                 # 优先信任会话列表这个强信号，有会话列表 = 登录正常
                 logger.info(f"ensure_im_ready: 轮询等待会话列表出现（{CONVERSATION_SELECTOR}）")
-                poll_timeout = 10
+                poll_timeout = 20
                 poll_interval = 0.5
                 elapsed = 0
 
@@ -605,7 +605,7 @@ class GoofishPlaywrightPlatform:
                 if heal_round < max_heal:
                     logger.info(f"ensure_im_ready: 自愈 - reload 页面")
                     try:
-                        page.reload(wait_until="commit", timeout=10000)
+                        page.reload(wait_until="commit", timeout=20000)
                         logger.info("ensure_im_ready: reload 完成")
                         time.sleep(3)  # 等待页面稳定
                     except Exception as e:

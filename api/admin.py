@@ -1070,27 +1070,26 @@ async def poll_messages():
         }
 
 
-@router.post("/shadow-pipeline")
-async def shadow_pipeline():
+@router.post("/auto-reply")
+async def auto_reply():
     """
-    影子模式自动回复编排器
+    自动回复主线 — 一趟扫描，对测试白名单真发
 
-    读到买家未读 → 检索 → 护栏决策 → 生成草稿存 DB → 绝不真发
+    poll 发现未读 → 回调 handle_buyer_message 就地处理 → 检索 → 生成 → 真发 → 硬校验
 
-    【铁律】只处理白名单内的测试会话，绝对不调用 send_reply
+    【铁律】只对测试白名单（海王星）真发，真实买家靠白名单挡死
     """
     try:
-        from core.shadow_pipeline import run_shadow_pipeline
-        result = run_shadow_pipeline()
+        from core.shadow_pipeline import run_auto_reply
+        result = run_auto_reply()
         return result
 
     except Exception as e:
-        logger.exception("shadow_pipeline failed")
+        logger.exception("auto_reply failed")
         return {
             "status": "failed",
             "detail": f"Exception: {str(e)}",
             "results": [],
-            "send_reply_called": False,
         }
 
 

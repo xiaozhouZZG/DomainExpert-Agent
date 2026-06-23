@@ -1,280 +1,167 @@
-# EnterpriseAgent - 企业级多智能体业务自动化平台
+# DomainExpert-Agent
 
-## 架构特性
+## 闲鱼智能客服与自动化运营平台
 
-- ✅ **LangGraph 引擎**: 基于 LangGraph 的智能体编排
-- ✅ **向量 RAG**: 向量检索 + BGE Embedding + Reranker
-- ✅ **多智能体协作**: Supervisor + 4个专家 Agent (客服/订单/分析/报表)
-- ✅ **工具注册表**: 8个工具 (数据查询/通知/审批/代码执行/报表)
-- ✅ **执行轨迹**: 完整的请求执行轨迹记录与可视化
-- ✅ **知识图谱**: 三元组存储，补充结构化事实
-- ✅ **可观测性**: 结构化日志 + 调用链追踪 + Token成本核算
+面向闲鱼运营场景的企业级智能客服系统。买家发消息后，系统自动识别问题、检索商品知识库、生成安全回复，并在低置信度或敏感场景下转人工处理。
 
-## 快速部署（Docker）
+---
 
-### 1. 准备配置文件
+## 核心功能
+
+### 闲鱼自动化
+
+- **扫码登录**：网页一键扫码，浏览器会话持久化
+- **自动读取消息**：后台轮询未读买家消息
+- **RAG 商品问答**：上传商品知识库，自动检索匹配
+- **三段式护栏**：高置信度自动回复，灰区/未匹配转人工
+- **敏感问题拦截**：价格谈判、发货承诺等敏感话题转人工
+- **白名单保护**：默认只对测试号自动回复，真实买家需人工确认
+
+### 网页工作台
+
+- **智能客服工作台**：自动客服开关、消息流、人工接管区
+- **浏览器锁释放**：一键清理残留进程，恢复浏览器会话
+- **竞品分析**：闲鱼同类商品价格分析
+- **商品管理**：商品资料读取与管理
+- **知识库管理**：上传商品问答文档
+
+### 错误恢复
+
+- 登录失效提示 + 扫码恢复
+- Profile lock 检测 + 一键释放
+- 网络错误退避重试，不死循环
+
+---
+
+## 技术架构
+
+```
+Web 智能客服工作台
+        ↓
+   FastAPI (8802)
+        ↓
+Auto Reply Orchestrator (后台循环)
+        ↓
+RAG Retrieval Gateway (三段式护栏)
+        ↓
+   Browser Worker (单线程隔离)
+        ↓
+Playwright Sync API (闲鱼自动化)
+```
+
+---
+
+## 技术亮点
+
+### Browser Worker 单线程隔离
+
+Playwright Sync API 与 FastAPI async 有事件循环冲突。本项目通过 `BrowserWorker` 单线程隔离，所有 Playwright 操作通过 `worker.execute()` 执行，解决 asyncio 线程安全问题。
+
+### Profile Lock 检测与释放
+
+浏览器 profile 被旧进程占用时会检测并提示，提供一键释放按钮，用 psutil 终止残留 Chrome 进程并清理锁文件。
+
+### RAG 三段式护栏
+
+- **high (>=0.60)**：自动生成回复
+- **gray (0.53-0.60)**：转人工处理
+- **not_found (<0.53)**：无可靠答案，转人工
+
+避免模型瞎编商品价格、发货方式、售后承诺。
+
+### 转人工状态机
+
+```
+open/bot → pending_handoff → human_taking → resolved
+```
+
+会话状态持久化，支持人工接管后返回机器人。
+
+### 自动回复白名单保护
+
+只对白名单测试账号（如"海王星上蹿下跳的豆浆"）真发。真实买家消息只入库，不自动回复，需人工确认。
+
+### 发送后硬校验
+
+发送回复后检查 DOM 气泡是否包含发送内容，确保真实送达，不谎报成功。
+
+### 网络错误退避
+
+网络/超时错误退避重试 2s/4s/8s，最多 3 次，失败放弃本轮，不拖死整个服务。
+
+---
+
+## 启动方式
 
 ```bash
-# 复制环境变量模板
-cp .env.example .env
-
-# 编辑配置（必须设置 LLM API Key）
-vim .env
-```
-
-修改 `.env` 中的以下配置：
-
-```bash
-# LLM 配置（必填）
-LLM_API_KEY=your-api-key-here
-LLM_BASE_URL=https://api.openai.com/v1
-LLM_MODEL=gpt-4
-
-# 其他配置已预设，通常不需要修改
-```
-
-### 2. 构建并启动服务
-
-```bash
-# 构建镜像
-docker-compose build
-
-# 启动服务（后台运行）
-docker-compose up -d
-
-# 查看日志
-docker-compose logs -f
-```
-
-### 3. 访问服务
-
-- **用户聊天页**: http://服务器IP:8802
-- **后台管理页**: http://服务器IP:8802/admin
-- **知识库管理**: http://服务器IP:8802/kb
-
-### 4. 初始化数据（首次启动）
-
-```bash
-# 进入容器
-docker exec -it enterprise-agent bash
-
-# 运行种子脚本（初始化数据库和示例数据）
-python seed.py
-
-# 退出容器
-exit
-```
-
-### 5. 管理服务
-
-```bash
-# 查看服务状态
-docker-compose ps
-
-# 查看日志
-docker-compose logs -f
-
-# 重启服务
-docker-compose restart
-
-# 停止服务
-docker-compose down
-
-# 停止并删除数据
-docker-compose down -v
-```
-
-## 数据持久化
-
-以下目录通过 volume 挂载，数据持久化保存在宿主机：
-
-```
-./data/              # 数据库文件
-./data/knowledge/    # 知识库文件
-./.cache/            # 模型缓存（embedding/reranker）
-```
-
-容器重启后数据不会丢失。
-
-## 生产环境配置建议
-
-### 1. 安全配置
-
-修改 `.env` 中的管理员密码：
-
-```bash
-ADMIN_PASSWORD=your-strong-password-here
-```
-
-### 2. 反向代理（Nginx）
-
-```nginx
-server {
-    listen 80;
-    server_name your-domain.com;
-
-    location / {
-        proxy_pass http://localhost:8802;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-
-### 3. HTTPS 配置
-
-使用 Let's Encrypt 配置 HTTPS：
-
-```bash
-# 安装 certbot
-sudo apt-get install certbot python3-certbot-nginx
-
-# 获取证书
-sudo certbot --nginx -d your-domain.com
-```
-
-### 4. 备份数据
-
-```bash
-# 备份数据库和知识库
-tar -czf backup-$(date +%Y%m%d).tar.gz ./data
-
-# 定期备份（crontab）
-0 2 * * * cd /path/to/project && tar -czf backup-$(date +\%Y\%m\%d).tar.gz ./data
-```
-
-## 开发环境部署
-
-如果需要在本地开发环境运行（不使用 Docker）：
-
-```bash
-# 1. 安装依赖
-pip install -r requirements.txt
-
-# 2. 配置环境变量
-cp .env.example .env
-vim .env
-
-# 3. 初始化数据库
-python seed.py
-
-# 4. 启动服务
+# 启动服务（唯一入口，端口 8802）
 python app.py
-
-# 访问: http://localhost:8802
 ```
 
-### 前端开发（修改 Tailwind 样式）
+访问：
+- **智能客服工作台**：http://localhost:8802/
+- **后台管理页**：http://localhost:8802/admin
 
-项目使用 Tailwind CSS 本地构建方案（非 CDN），修改 HTML 后需重新构建：
+不允许其他入口（如 `python api/server.py`、端口 8000）。
 
-```bash
-# 首次安装依赖
-npm install -D @tailwindcss/cli
+---
 
-# 修改 admin.html 后重新构建 CSS
-./build-tailwind.sh
+## 安全说明
 
-# 或手动运行
-node_modules/.bin/tailwindcss \
-  -i web/static/src/tailwind.input.css \
-  -o web/static/tailwind.css \
-  --content "./web/**/*.html" \
-  --minify
+- 默认只对白名单测试账号自动回复
+- 真实买家需要人工确认或灰度控制
+- API Key 不提交到仓库（.gitignore 已配置）
+- 浏览器登录态文件不提交到仓库
+
+---
+
+## 面试展示流程
+
+1. 启动服务：`python app.py`
+2. 打开智能客服工作台：http://localhost:8802/
+3. 扫码登录闲鱼（点击登录按钮，浏览器弹出扫码窗口）
+4. 上传商品问答知识库（admin 页面知识库管理）
+5. 开启自动客服（消息模块开关）
+6. 测试小号发送问题（如"这个怎么卖"、"能便宜吗"）
+7. 系统自动检索知识库、生成回复、发送
+8. 低置信度问题进入人工处理区（消息模块右栏）
+
+---
+
+## 项目结构
+
+```
+app.py                          # 唯一入口，端口 8802
+config.py                       # 配置管理
+CLAUDE.md                       # 项目宪法
+
+core/
+  auto_reply_orchestrator.py    # 后台常驻循环
+  auto_reply_logic.py           # 业务决策纯函数
+  auto_reply_adapter.py         # 闲鱼接入层
+  conversation_status.py        # 会话状态机
+  xianyu_service.py             # 消息入库服务
+
+platforms/
+  browser_manager.py            # 浏览器单例管理
+  browser_worker.py             # 单线程隔离
+  goofish_playwright.py         # 闲鱼自动化
+
+knowledge/
+  retrieval_gateway.py          # 统一检索出口
+  hybrid_rag_engine.py          # 混合检索引擎
+
+api/
+  admin.py                      # 自动客服 API
+  xianyu.py                     # 闲鱼登录/消息 API
+  knowledge.py                  # 知识库管理 API
+
+web/
+  main.html                     # 智能客服工作台
+  admin.html                    # 后台管理页
 ```
 
-**注意**：动态生成的颜色类（如 `bg-${color}-100`）已添加到 `tailwind.config.js` 的 `safelist` 中，无需担心被剔除。
-
-## 目录结构
-
-```
-.
-├── core/                # 编排引擎
-│   ├── adapter.py      # 引擎适配器
-│   ├── langgraph_engine.py  # LangGraph 引擎
-│   ├── response_engine.py   # 响应引擎
-│   └── rag_handler.py       # RAG 处理器
-├── agents/             # Agent 配置
-├── tools/              # 工具层
-│   ├── registry.py     # 工具注册表
-│   ├── database.py     # 数据库查询工具
-│   ├── notification.py # 通知工具
-│   └── knowledge_search.py  # 知识检索工具
-├── knowledge/          # 知识层
-│   ├── rag_engine.py   # RAG 引擎
-│   ├── retriever.py    # 检索器（向量）
-│   ├── embedder.py     # 向量化器（BGE）
-│   └── reranker.py     # 重排器
-├── database/           # 数据库
-│   ├── models.py       # 数据模型
-│   └── connection.py   # 连接管理
-├── api/                # FastAPI 接口
-│   ├── chat.py         # 聊天接口
-│   ├── admin.py        # 管理接口
-│   └── knowledge.py    # 知识库接口
-├── web/                # 前端页面
-├── app.py              # 主应用
-├── seed.py             # 种子数据
-├── Dockerfile          # Docker 镜像
-├── docker-compose.yml  # Docker 编排
-└── requirements.txt    # 依赖列表
-```
-
-## API 接口
-
-### 用户接口
-- `GET /` - 聊天页面
-- `POST /api/chat` - 发送消息
-
-### 管理接口
-- `GET /admin` - 后台管理页面
-- `GET /api/admin/dashboard` - 仪表盘数据
-- `GET /api/admin/execution-traces` - 执行轨迹列表
-- `GET /api/admin/execution-traces/{trace_id}` - 轨迹详情
-- `GET /api/admin/conversations` - 对话记录
-- `PUT /api/admin/llm-config` - 更新 LLM 配置
-
-### 知识库接口
-- `GET /kb` - 知识库管理页面
-- `POST /api/kb/upload` - 上传文档
-- `GET /api/kb/list` - 文档列表
-- `POST /api/kb/search` - 知识检索
-
-## 常见问题
-
-### 1. 容器启动失败
-
-查看日志定位问题：
-```bash
-docker-compose logs -f
-```
-
-常见原因：
-- 端口 8802 被占用
-- `.env` 文件配置错误
-- LLM API Key 未设置
-
-### 2. 模型下载慢
-
-容器内已配置 Hugging Face 镜像源（https://hf-mirror.com），如果下载仍然很慢，可以：
-
-1. 手动下载模型到 `.cache` 目录
-2. 使用代理
-
-### 3. 数据丢失
-
-确保 volume 挂载正确：
-```bash
-docker-compose ps
-docker volume ls
-```
-
-### 4. 性能优化
-
-- 增加容器内存限制（docker-compose.yml 中添加 `mem_limit`）
-- 使用 GPU 加速（需要 nvidia-docker）
+---
 
 ## License
 

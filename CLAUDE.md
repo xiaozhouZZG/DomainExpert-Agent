@@ -12,7 +12,7 @@ DomainExpert-Agent：面向闲鱼运营场景的企业级智能客服与自动�
 - **单浏览器所有权**：整个项目只能通过 `BrowserManager` 单例 (`get_goofish_browser_manager()`) 启动浏览器
 - **所有 Playwright 操作必须走 browser_worker**：`worker.execute(func)`，FastAPI async 端点不能直接调用 Playwright sync API
 - **前端消息模块 = 智能客服工作台**（`web/main.html`），不要另建页面
-- **所有自动回复必须走白名单和护栏**：只对测试号真发，真实买家挡死
+- **所有自动回复必须走白名单和护栏**：只对授权测试账号真发，非授权账号需人工接管
 - **写代码前先 grep 现有功能**：能复用就复用，不能重复造
 - **RAG 三段式护栏**：high 自动回复，gray/not_found 转人工。不允许模型瞎编价格、承诺
 

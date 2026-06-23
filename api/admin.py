@@ -1068,3 +1068,91 @@ async def poll_messages():
             "total": 0,
             "needs_reply_count": 0
         }
+
+
+@router.post("/shadow-pipeline")
+async def shadow_pipeline():
+    """
+    影子模式自动回复编排器
+
+    读到买家未读 → 检索 → 护栏决策 → 生成草稿存 DB → 绝不真发
+
+    【铁律】只处理白名单内的测试会话，绝对不调用 send_reply
+    """
+    try:
+        from core.shadow_pipeline import run_shadow_pipeline
+        result = run_shadow_pipeline()
+        return result
+
+    except Exception as e:
+        logger.exception("shadow_pipeline failed")
+        return {
+            "status": "failed",
+            "detail": f"Exception: {str(e)}",
+            "results": [],
+            "send_reply_called": False,
+        }
+
+
+@router.get("/shadow-pipeline/db-check")
+async def shadow_pipeline_db_check(buyer_name: str = "海王星上蹿下跳的豆浆"):
+    """
+    查看 DB 中某会话的记录（草稿/状态），用于验证影子模式结果
+    """
+    try:
+        from core.shadow_pipeline import _conversation_id_for
+        conversation_id = _conversation_id_for(buyer_name)
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # 会话状态
+        cursor.execute("""
+            SELECT status, last_intent, updated_at
+            FROM xianyu_conversations
+            WHERE conversation_id = ?
+        """, (conversation_id,))
+        conv_row = cursor.fetchone()
+
+        # 最新消息 + 草稿
+        cursor.execute("""
+            SELECT message_id, direction, content, intent, draft_reply, sent_status, created_at
+            FROM xianyu_messages
+            WHERE conversation_id = ?
+            ORDER BY created_at DESC, id DESC
+            LIMIT 5
+        """, (conversation_id,))
+        msg_rows = cursor.fetchall()
+
+        conn.close()
+
+        messages = []
+        for row in msg_rows:
+            draft_data = None
+            if row[4]:
+                try:
+                    draft_data = json.loads(row[4])
+                except json.JSONDecodeError:
+                    draft_data = {"raw": row[4]}
+
+            messages.append({
+                "message_id": row[0][:8] + "...",
+                "direction": row[1],
+                "content": row[2],
+                "intent": row[3],
+                "draft_reply": draft_data,
+                "sent_status": row[5],
+                "created_at": row[6],
+            })
+
+        return {
+            "conversation_id": conversation_id,
+            "conversation_status": conv_row[0] if conv_row else "not_found",
+            "last_intent": conv_row[1] if conv_row else None,
+            "updated_at": conv_row[2] if conv_row else None,
+            "recent_messages": messages,
+        }
+
+    except Exception as e:
+        logger.exception("shadow_pipeline_db_check failed")
+        return {"status": "error", "detail": str(e)}

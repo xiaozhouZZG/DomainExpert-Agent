@@ -4,7 +4,8 @@ setlocal EnableExtensions
 cd /d "%~dp0"
 
 echo ========================================
-echo EnterpriseAgent local startup
+echo DomainExpert-Agent
+echo 闲鱼智能客服与自动化运营平台
 echo ========================================
 echo.
 

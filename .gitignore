@@ -22,6 +22,9 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
 # 日志文件
 *.log
@@ -30,6 +33,8 @@ server.log
 
 # 环境变量（真实 API key，绝不推送）
 .env
+.env.*
+!.env.example
 .venv
 env/
 venv/
@@ -78,6 +83,22 @@ data/*.db
 data/*.sqlite
 data/browser_state/
 
+# 截图 / 调试输出
+screenshots/
+send_reply_screenshots/
+ensure_im_ready_failures/
+generated_artifacts/
+
 # Node.js (前端构建工具)
 node_modules/
 package-lock.json
+
+# 敏感文件
+*.key
+*.pem
+storage_state.json
+cookies.json
+localStorage.json
+token.json
+credential*.json
+secret*.json

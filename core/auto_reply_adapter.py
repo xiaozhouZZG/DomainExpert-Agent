@@ -7,6 +7,7 @@ send_reply(conversation_id, buyer_name, text): 走已验证发送
 错误分类（关键，治死循环）：
 - 网络/超时 → 退避重试最多 3 次(2s/4s/8s)，仍失败 → 本轮放弃
 - need_login → 立刻暂停整个自动循环，绝不重试
+- profile_locked → 立刻暂停，绝不重试（浏览器 profile 被其他进程占用）
 - 其他未知错 → 记录 + 本轮放弃
 """
 from __future__ import annotations
@@ -56,6 +57,11 @@ def get_unread_messages() -> dict[str, Any]:
         return {"status": "ready", "messages": messages, "detail": ""}
 
     except Exception as e:
+        err_str = str(e)
+        # profile_locked → 暂停循环，不重试
+        if "profile_locked" in err_str:
+            logger.error(f"[接入] profile 被占用: {e}")
+            return {"status": "profile_locked", "messages": [], "detail": err_str}
         logger.error(f"get_unread_messages 异常: {e}")
         return {"status": "error", "messages": [], "detail": str(e)}
 
@@ -131,5 +137,8 @@ def send_reply(conversation_id: str, buyer_name: str, text: str) -> dict[str, An
             err_str = str(e)
             if "need_login" in err_str.lower() or "login" in err_str.lower():
                 return {"status": "need_login", "detail": err_str}
+            if "profile_locked" in err_str:
+                logger.error(f"[接入] profile 被占用: {e}")
+                return {"status": "profile_locked", "detail": err_str}
             logger.error(f"[接入] send_reply 未知异常: {e}")
             return {"status": "failed", "detail": str(e)}

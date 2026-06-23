@@ -1118,12 +1118,61 @@ async def auto_reply_feed(limit: int = 20):
 
 @router.post("/auto-reply/clear-need-login")
 async def auto_reply_clear_need_login():
-    """清除 need_login 状态（扫码后调用）"""
+    """清除 need_login / profile_locked 状态（扫码或修复后调用）"""
     try:
         from core.auto_reply_orchestrator import clear_need_login_status
         return clear_need_login_status()
     except Exception as e:
         logger.exception("clear_need_login failed")
+        return {"status": "error", "detail": str(e)}
+
+
+@router.get("/browser/status")
+async def browser_status():
+    """获取浏览器状态"""
+    try:
+        from platforms.browser_manager import get_goofish_browser_manager
+        mgr = get_goofish_browser_manager()
+        is_started = mgr.is_started()
+        is_locked = mgr.is_profile_locked()
+        owner_pids = mgr.get_profile_owner_pids()
+
+        return {
+            "browser_started": is_started,
+            "profile_locked": is_locked,
+            "owner_pids": owner_pids if is_locked else [],
+        }
+    except Exception as e:
+        logger.exception("browser_status failed")
+        return {"status": "error", "detail": str(e)}
+
+
+@router.post("/browser/restart")
+async def browser_restart():
+    """强制重启浏览器会话（清理残留进程 + 重启浏览器）"""
+    try:
+        from core.auto_reply_orchestrator import stop_auto_reply
+        from platforms.browser_manager import get_goofish_browser_manager
+
+        # 暂停自动客服
+        stop_auto_reply_result = stop_auto_reply()
+
+        # 重启浏览器
+        mgr = get_goofish_browser_manager()
+        restart_result = mgr.force_restart()
+
+        # 清除可能因 profile_locked 导致的锁定状态
+        from core.auto_reply_orchestrator import clear_need_login_status
+        clear_need_login_status()
+
+        return {
+            "status": "ok",
+            "message": "浏览器会话已重启。请刷新页面后重新开启自动客服。",
+            "auto_reply": stop_auto_reply_result,
+            "browser": restart_result,
+        }
+    except Exception as e:
+        logger.exception("browser_restart failed")
         return {"status": "error", "detail": str(e)}
 
 

@@ -799,6 +799,8 @@ async function refreshAutoReplyStatus() {
         const statusEl = document.getElementById('auto-reply-status');
         const lastScanEl = document.getElementById('auto-reply-last-scan');
         const banner = document.getElementById('need-login-banner');
+        const alertText = document.getElementById('alert-text');
+        const restartBtn = document.getElementById('restart-browser-btn');
         const toggle = document.getElementById('auto-reply-toggle');
 
         const status = result.status || 'stopped';
@@ -808,7 +810,17 @@ async function refreshAutoReplyStatus() {
         if (status === 'need_login') {
             statusEl.textContent = '需扫码登录';
             statusEl.style.color = '#ff6666';
-            banner.style.display = 'block';
+            alertText.textContent = '闲鱼登录已失效，请在浏览器窗口扫码';
+            restartBtn.style.display = 'none';
+            banner.style.display = 'flex';
+            updateAutoReplyUI(false);
+            stopAutoReplyRefresh();
+        } else if (status === 'profile_locked') {
+            statusEl.textContent = '浏览器被占用';
+            statusEl.style.color = '#ff6666';
+            alertText.textContent = '浏览器 profile 被其他进程占用，请点击"重启浏览器会话"或手动关闭残留 Chrome 进程';
+            restartBtn.style.display = 'inline-block';
+            banner.style.display = 'flex';
             updateAutoReplyUI(false);
             stopAutoReplyRefresh();
         } else if (status === 'running') {
@@ -960,6 +972,32 @@ async function markHandoffResolved(conversationId) {
         }
     } catch (e) {
         alert('请求失败: ' + e.message);
+    }
+}
+
+// ==================== 浏览器会话管理 ====================
+
+async function restartBrowser() {
+    const btn = document.getElementById('restart-browser-btn');
+    btn.disabled = true;
+    btn.textContent = '重启中...';
+
+    try {
+        const result = await api('/api/admin/browser/restart', { method: 'POST' });
+        if (result.status === 'ok') {
+            alert('浏览器会话已重启。请刷新页面后重新开启自动客服。');
+            setTimeout(() => {
+                refreshAutoReplyStatus();
+                refreshAutoReplyFeed();
+            }, 2000);
+        } else {
+            alert('重启失败: ' + (result.detail || JSON.stringify(result)));
+        }
+    } catch (e) {
+        alert('请求失败: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '重启浏览器会话';
     }
 }
 

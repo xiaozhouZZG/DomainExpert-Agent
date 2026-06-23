@@ -86,9 +86,20 @@ async def lifespan(app: FastAPI):
         conn.close()
 
         if enabled:
-            from core.auto_reply_orchestrator import start_auto_reply
-            result = start_auto_reply()
-            logger.info("自动客服恢复启动: %s", result)
+            # 检查 profile 是否被占用
+            from platforms.browser_manager import get_goofish_browser_manager
+            mgr = get_goofish_browser_manager()
+            if mgr.is_profile_locked():
+                logger.warning("启动时检测到 profile 被其他进程占用，自动客服暂停")
+                cursor = conn.cursor()
+                cursor.execute(
+                    "INSERT INTO system_config (key, value, updated_at) VALUES ('auto_reply_status', 'profile_locked', CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value = 'profile_locked', updated_at = CURRENT_TIMESTAMP"
+                )
+                conn.commit()
+            else:
+                from core.auto_reply_orchestrator import start_auto_reply
+                result = start_auto_reply()
+                logger.info("自动客服恢复启动: %s", result)
     except Exception as e:
         logger.warning("自动客服恢复启动失败（可能表不存在）: %s", e)
 

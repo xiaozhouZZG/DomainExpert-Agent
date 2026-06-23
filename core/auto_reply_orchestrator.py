@@ -150,6 +150,11 @@ def _one_cycle() -> dict[str, Any]:
         logger.warning("[编排] 需要登录，自动暂停")
         return {"status": "need_login", "detail": "需要扫码登录"}
 
+    if status == "profile_locked":
+        _set_config("auto_reply_status", "profile_locked")
+        logger.warning("[编排] profile 被占用，自动暂停")
+        return {"status": "profile_locked", "detail": unread.get("detail", "")}
+
     if status == "error":
         logger.error(f"[编排] get_unread 失败: {unread.get('detail')}")
         return {"status": "error", "detail": unread.get("detail")}
@@ -237,8 +242,8 @@ def _worker_loop() -> None:
                 continue
 
             status = _get_config("auto_reply_status", "stopped")
-            if status == "need_login":
-                logger.debug("[编排] 状态为 need_login，跳过本轮")
+            if status in ("need_login", "profile_locked"):
+                logger.debug(f"[编排] 状态为 {status}，跳过本轮")
                 time.sleep(5)
                 continue
 
@@ -298,6 +303,7 @@ def get_auto_reply_status() -> dict[str, Any]:
             "running": "运行中",
             "stopped": "已停止",
             "need_login": "需扫码登录",
+            "profile_locked": "浏览器被占用",
         }.get(status, status),
     }
 

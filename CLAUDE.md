@@ -85,7 +85,10 @@ open/bot → pending_handoff → human_taking → resolved
 
 ## 关键约束
 
+- **唯一启动命令**: `python app.py`，端口 8802。禁止 `python api/server.py`、禁止 8000 端口
+- **单浏览器所有权**: 整个项目只能通过 `BrowserManager` 单例 (`get_goofish_browser_manager()`) 启动浏览器，禁止直接 `launch_persistent_context`
 - 浏览器操作不能在 asyncio.run 的上下文中执行（Playwright 事件循环冲突），已在 `hybrid_rag_engine.search()` 用独立线程处理
 - 真实买家绝不自动回复，白名单挡死
 - `app.py` 拒绝非 8802 端口启动
 - 前端消息模块 = 智能客服工作台（`web/main.html` 第 47 行起），不要另建页面
+- Profile 被占用时返回 `profile_locked` 错误码，前端显示"重启浏览器会话"按钮，调用 `POST /api/admin/browser/restart`

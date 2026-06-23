@@ -183,6 +183,58 @@ class BrowserManager:
         with self._lock:
             return self._context_is_live_locked()
 
+    def is_profile_locked(self) -> bool:
+        """检测 profile 是否被其他活进程占用"""
+        with self._lock:
+            if self._context_is_live_locked():
+                return False  # 自己在用，不算 locked
+            owner_pids = self._profile_owner_pids_locked()
+            return len(owner_pids) > 0
+
+    def get_profile_owner_pids(self) -> list[int]:
+        """获取占用 profile 的其他进程 PID"""
+        with self._lock:
+            if self._context_is_live_locked():
+                return []
+            return self._profile_owner_pids_locked()
+
+    def force_restart(self) -> dict[str, Any]:
+        """
+        强制重启浏览器会话：
+        1. 关闭当前 context/browser
+        2. 清理 stale lock 文件
+        3. 等待 2 秒
+        4. 不自动启动新浏览器（等下次 with_page 时启动）
+        """
+        import time as _time
+        with self._lock:
+            # 1. 优雅关闭
+            self._stop_locked()
+            logger.info("force_restart: 已关闭当前浏览器会话")
+
+        # 2. 清理 stale lock（不在 lock 内，因为 _stop_locked 已释放 context）
+        removed = []
+        lock_paths = [self.user_data_dir / name for name in _PROFILE_LOCK_NAMES if (self.user_data_dir / name).exists()]
+        for lock_path in lock_paths:
+            try:
+                if lock_path.is_dir():
+                    shutil.rmtree(lock_path)
+                else:
+                    lock_path.unlink()
+                removed.append(str(lock_path))
+                logger.info("force_restart: 清理 lock 文件: %s", lock_path)
+            except Exception as e:
+                logger.warning("force_restart: 清理 lock 文件失败: %s, %s", lock_path, e)
+
+        # 3. 等 2 秒
+        _time.sleep(2)
+
+        return {
+            "status": "ok",
+            "message": "浏览器会话已重启，下次操作时自动启动新浏览器",
+            "removed_locks": removed,
+        }
+
     def save_storage_state(self) -> None:
         with self._lock:
             self._save_storage_state_locked()
@@ -311,9 +363,10 @@ class BrowserManager:
     def _prepare_profile_dir_locked(self) -> list[int]:
         owner_pids = self._profile_owner_pids_locked()
         if owner_pids:
+            # 返回详细错误，而不是直接抛异常，让调用方决定如何处理
+            pids_str = ",".join(map(str, owner_pids))
             raise PlatformNotReadyError(
-                "Browser profile is already in use by live process(es) "
-                f"{owner_pids}; please close them and retry: {self.user_data_dir}"
+                f"profile_locked:{pids_str}"
             )
 
         self._clear_stale_profile_locks_locked()

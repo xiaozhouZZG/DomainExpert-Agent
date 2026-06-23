@@ -120,7 +120,7 @@ async function generateListingPlan() {
         resultArea.innerHTML = `
             <div class="publish-result-content">
                 <h3>AI 推荐上架方案</h3>
-                <div style="margin-top: 16px; line-height: 1.8; color: var(--text-primary);">
+                <div style="margin-top: 16px; line-height: 1.8; color: #e0e0e0;">
                     <pre style="white-space: pre-wrap; font-family: inherit; margin: 0;">${escapeHtml(data.plan_text || '生成失败')}</pre>
                 </div>
             </div>

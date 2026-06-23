@@ -443,52 +443,77 @@ def _build_listing_plan_messages(
     product_info: str,
     cost: Optional[float],
     target_margin: Optional[float],
-    competitors: list[dict[str, Any]],
-    stats: dict[str, Any],
+    competitors: list[dict[str, Any]] | None = None,
+    stats: dict[str, Any] | None = None,
 ) -> list[dict[str, str]]:
-    prompt_competitors = [
-        {
-            "title": str(item.get("title") or "")[:240],
-            "price": item.get("price"),
-            "want_count": item.get("want_count"),
-            "selling_points": item.get("selling_points"),
-            "item_url": item.get("item_url"),
-        }
-        for item in competitors
-    ]
-    user_payload = {
-        "keyword": keyword,
-        "product_info": product_info or "用户当前只提供了关键词，请基于真实竞品给出保守上架方案。",
-        "cost": cost,
-        "target_margin": target_margin,
-        "real_competitor_stats": stats,
-        "real_competitors": prompt_competitors,
-        "output_schema": {
-            "suggested_title": "建议标题，必须含关键词",
-            "pricing": {
-                "suggested_price": "数字或带人民币符号的字符串",
-                "reason": "必须引用真实竞品价格区间和中位数",
+    has_competitors = competitors and len(competitors) > 0
+
+    if has_competitors:
+        prompt_competitors = [
+            {
+                "title": str(item.get("title") or "")[:240],
+                "price": item.get("price"),
+                "want_count": item.get("want_count"),
+                "selling_points": item.get("selling_points"),
+                "item_url": item.get("item_url"),
+            }
+            for item in competitors
+        ]
+        user_payload = {
+            "keyword": keyword,
+            "product_info": product_info or "用户当前只提供了关键词，请基于真实竞品给出保守上架方案。",
+            "cost": cost,
+            "target_margin": target_margin,
+            "real_competitor_stats": stats,
+            "real_competitors": prompt_competitors,
+            "output_schema": {
+                "suggested_title": "建议标题，必须含关键词",
+                "pricing": {
+                    "suggested_price": "数字或带人民币符号的字符串",
+                    "reason": "必须引用真实竞品价格区间和中位数",
+                },
+                "description": "商品描述",
+                "selling_points": ["卖点1", "卖点2", "卖点3"],
+                "ad_copy": ["广告词1", "广告词2"],
+                "category": "建议分类",
+                "risk_notes": ["风险提示1", "风险提示2"],
             },
-            "description": "商品描述",
-            "selling_points": ["卖点1", "卖点2", "卖点3"],
-            "ad_copy": ["广告词1", "广告词2"],
-            "category": "建议分类",
-            "risk_notes": ["风险提示1", "风险提示2"],
-        },
-    }
+        }
+        system_prompt = (
+            "你是闲鱼电商运营上架策划。只能基于用户提供的真实竞品记录生成上架方案，"
+            "不得编造不存在的竞品、价格、销量或平台数据。输出必须是合法 JSON，"
+            "不要 Markdown，不要解释 JSON 之外的内容。"
+        )
+    else:
+        user_payload = {
+            "keyword": keyword,
+            "product_info": product_info or "请根据关键词生成上架方案。",
+            "cost": cost,
+            "target_margin": target_margin,
+            "output_schema": {
+                "suggested_title": "建议标题，含关键词，适合闲鱼搜索",
+                "pricing": {
+                    "suggested_price": "建议价格区间或定价思路（不要编造确定价格）",
+                    "reason": "基于商品类型和成本的定价思路",
+                },
+                "description": "商品详情文案，可直接复制到闲鱼详情页，语气自然可信",
+                "selling_points": ["卖点1", "卖点2", "卖点3"],
+                "keywords": ["搜索关键词1", "关键词2"],
+                "faq": [{"question": "买家常问问题", "answer": "标准回答"}],
+                "risk_notes": ["风控提醒1", "风控提醒2"],
+            },
+        }
+        system_prompt = (
+            "你是闲鱼电商运营上架策划。根据用户提供的商品信息生成上架方案。"
+            "不要编造用户未提供的具体承诺。不要夸大效果。"
+            "不要使用违规、绝对化、虚假承诺词。"
+            "如果价格、发货方式、包含内容不明确，用'建议补充'表达，不要硬编。"
+            "输出必须是合法 JSON，不要 Markdown，不要解释 JSON 之外的内容。"
+        )
+
     return [
-        {
-            "role": "system",
-            "content": (
-                "你是闲鱼电商运营上架策划。只能基于用户提供的真实竞品记录生成上架方案，"
-                "不得编造不存在的竞品、价格、销量或平台数据。输出必须是合法 JSON，"
-                "不要 Markdown，不要解释 JSON 之外的内容。"
-            ),
-        },
-        {
-            "role": "user",
-            "content": json.dumps(user_payload, ensure_ascii=False),
-        },
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
     ]
 
 
@@ -512,6 +537,79 @@ def _parse_listing_plan_response(response: str) -> dict[str, Any]:
         "parse_status": "raw",
         "raw_text": response.strip(),
     }
+
+
+def _format_plan_as_text(plan: dict[str, Any], keyword: str, competitors: list) -> str:
+    """把 plan dict 格式化为前端可渲染的文本"""
+    lines = []
+
+    if plan.get("parse_status") == "raw":
+        return plan.get("raw_text", "生成失败")
+
+    # 标题
+    title = plan.get("suggested_title", "")
+    if title:
+        lines.append(f"【建议标题】{title}")
+
+    # 价格
+    pricing = plan.get("pricing", {})
+    if isinstance(pricing, dict):
+        price = pricing.get("suggested_price", "")
+        reason = pricing.get("reason", "")
+        if price:
+            lines.append(f"【价格建议】{price}")
+        if reason:
+            lines.append(f"  定价思路：{reason}")
+
+    # 卖点
+    selling_points = plan.get("selling_points", [])
+    if selling_points:
+        lines.append("【卖点提炼】")
+        for i, sp in enumerate(selling_points, 1):
+            lines.append(f"  {i}. {sp}")
+
+    # 详情文案
+    desc = plan.get("description", "")
+    if desc:
+        lines.append(f"【详情文案】\n{desc}")
+
+    # 关键词
+    kw = plan.get("keywords", [])
+    if kw:
+        lines.append(f"【搜索关键词】{', '.join(kw)}")
+
+    # 常见问答
+    faq = plan.get("faq", [])
+    if faq:
+        lines.append("【买家常见问答】")
+        for item in faq:
+            if isinstance(item, dict):
+                lines.append(f"  Q: {item.get('question', '')}")
+                lines.append(f"  A: {item.get('answer', '')}")
+            else:
+                lines.append(f"  {item}")
+
+    # 广告词
+    ad_copy = plan.get("ad_copy", [])
+    if ad_copy:
+        lines.append("【广告词】")
+        for ad in ad_copy:
+            lines.append(f"  - {ad}")
+
+    # 风控提醒
+    risk_notes = plan.get("risk_notes", [])
+    if risk_notes:
+        lines.append("【风控提醒】")
+        for note in risk_notes:
+            lines.append(f"  - {note}")
+
+    # 竞品参考
+    if competitors:
+        lines.append(f"\n【基于 {len(competitors)} 条竞品数据生成】")
+    else:
+        lines.append("\n【基于商品信息生成（未获取竞品数据）】")
+
+    return "\n".join(lines)
 
 
 def _sanitize_marketing_text(value: Any, *, max_chars: int = 220) -> str:
@@ -1529,32 +1627,23 @@ async def generate_xianyu_listing_plan(
     if not keyword:
         raise HTTPException(status_code=400, detail="keyword required")
 
-    # 实时抓取竞品数据，不从数据库读取
+    # 尝试抓取竞品数据，失败时 fallback 到无竞品模式
+    competitors = []
+    stats = {}
     try:
         competitor_result = await _invoke_tool_json(fetch_xianyu_competitors, {"keyword": keyword, "limit": req.competitor_limit})
         competitors = competitor_result.get("items", [])
     except Exception as exc:
-        logger.exception("Failed to fetch real-time competitors for listing plan: keyword=%s", keyword)
-        raise HTTPException(
-            status_code=502,
-            detail=f"Failed to fetch real-time competitors: {exc}"
-        ) from exc
+        logger.warning("Failed to fetch competitors for listing plan (will use fallback): keyword=%s err=%s", keyword, exc)
 
-    if not competitors:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No competitors found for keyword={keyword}; try a different keyword.",
-        )
-
-    stats = _competitor_price_stats(competitors)
-    if stats["priced_count"] == 0:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Competitors for keyword={keyword} do not contain usable price fields.",
-        )
-
-    prompt_competitors = _select_competitors_for_prompt(competitors)
-    prompt_stats = _competitor_price_stats(prompt_competitors)
+    if competitors:
+        stats = _competitor_price_stats(competitors)
+        prompt_competitors = _select_competitors_for_prompt(competitors)
+        prompt_stats = _competitor_price_stats(prompt_competitors)
+    else:
+        prompt_competitors = []
+        prompt_stats = {}
+        stats = {}
 
     config = ConfigManager.get_llm_config()
     if not config.get("base_url") or not config.get("api_key") or not config.get("model"):
@@ -1565,17 +1654,18 @@ async def generate_xianyu_listing_plan(
         product_info=req.product_info.strip(),
         cost=req.cost,
         target_margin=req.target_margin,
-        competitors=prompt_competitors,
-        stats=stats,
+        competitors=prompt_competitors if competitors else None,
+        stats=stats if competitors else None,
     )
     prompt_chars = sum(len(message["content"]) for message in messages)
     logger.info(
-        "xianyu listing plan LLM request: keyword=%s competitors=%s model=%s protocol=%s prompt_chars=%s",
+        "xianyu listing plan LLM request: keyword=%s competitors=%s model=%s protocol=%s prompt_chars=%s fallback=%s",
         keyword,
         len(prompt_competitors),
         config.get("model"),
         config.get("protocol"),
         prompt_chars,
+        not competitors,
     )
 
     client = create_llm_client(
@@ -1609,14 +1699,15 @@ async def generate_xianyu_listing_plan(
         raise HTTPException(status_code=502, detail="LLM returned an empty listing plan.")
 
     plan = _parse_listing_plan_response(response)
+
+    # 格式化 plan_text 供前端渲染
+    plan_text = _format_plan_as_text(plan, keyword, competitors)
+
     result = {
         "status": "success",
-        "mode": "llm",
+        "mode": "llm_fallback" if not competitors else "llm",
         "keyword": keyword,
-        "competitors_used": prompt_competitors,
-        "competitor_stats": stats,
-        "prompt_competitor_stats": prompt_stats,
-        "prompt_competitor_count": len(prompt_competitors),
+        "plan_text": plan_text,
         "plan": plan,
         "raw_response": response.strip(),
         "llm_call": {
@@ -1630,6 +1721,8 @@ async def generate_xianyu_listing_plan(
             "called_at": datetime.now().isoformat(),
         },
     }
+
+    return result
 
 
 @router.post("/reply-draft")

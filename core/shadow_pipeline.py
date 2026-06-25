@@ -1,14 +1,9 @@
 """
-自动回复编排器 — 一条主线，一趟走完
+[DEPRECATED] 自动回复旧管道 — 已被 auto_reply_orchestrator 替代。
 
-handle_buyer_message(conv, msg):
-  白名单 → 去重 → 入库(统一) → 敏感意图拦截 → 检索三段式 → 生成 → 真发 → 硬校验 → 入库
-
-铁律：
-1. 只对测试白名单（海王星）真发，真实买家靠白名单挡死
-2. approval 绕过只准测试号用
-3. worker 线程、sync Playwright 规矩
-4. 发送后硬校验（自己气泡含发送内容），没通过算失败
+此模块允许 import，但所有入口函数被调用时会抛 RuntimeError。
+- live API 已迁移到 auto_reply_orchestrator.run_once() / start_auto_reply()
+- 旧脚本请改为调用 orchestrator.run_once()
 """
 from __future__ import annotations
 
@@ -22,6 +17,14 @@ from typing import Any
 from database.connection import get_db_connection
 
 logger = logging.getLogger(__name__)
+
+DEPRECATED = True
+
+_DEPRECATED_MESSAGE = (
+    "shadow_pipeline 已废弃，请使用 core.auto_reply_orchestrator 的 "
+    "run_once()（单次扫描）或 start_auto_reply()（常驻循环）。"
+)
+
 
 # 测试会话白名单 — 只有这些买家的会话会被处理
 TEST_WHITELIST = [
@@ -346,48 +349,9 @@ def handle_buyer_message(conv: dict) -> dict[str, Any]:
 
 
 def run_auto_reply() -> dict[str, Any]:
-    """
-    自动回复主入口
-
-    一趟扫描：poll 发现未读 → 回调 handle_buyer_message 就地处理 → 完成
-    不二次 poll、不影子绕路、不留测试开关
-    """
-    logger.info("=" * 60)
-    logger.info("[自动回复] 开始一趟扫描")
-
-    results = []
-    total_scanned = [0]
-
-    def on_unread_message(conv: dict) -> None:
-        """回调：poll 点进会话读到买家消息后，立刻交给主线函数处理"""
-        total_scanned[0] += 1
-        if conv.get("needs_reply"):
-            result = handle_buyer_message(conv)
-            results.append(result)
-
-    try:
-        from platforms.goofish_playwright import GoofishPlaywrightPlatform
-
-        platform = GoofishPlaywrightPlatform()
-        poll_result = platform.poll_unread_conversations(on_unread_message=on_unread_message)
-    except Exception as e:
-        logger.error(f"[自动回复] poll 失败: {e}")
-        return {"status": "failed", "detail": str(e), "results": []}
-
-    poll_status = poll_result.get("status", "failed")
-    if poll_status != "ready":
-        logger.warning(f"[自动回复] poll 状态: {poll_status}")
-        return {
-            "status": poll_status,
-            "detail": poll_result.get("detail", ""),
-            "results": [],
-        }
-
-    logger.info(f"[自动回复] 完成: 扫描={total_scanned[0]} 处理={len(results)}")
-    logger.info("=" * 60)
-
-    return {
-        "status": "ready",
-        "results": results,
-        "total_scanned": total_scanned[0],
-    }
+    """[DEPRECATED] 旧入口 — 调用时直接 raise，避免误真发。"""
+    raise RuntimeError(
+        "shadow_pipeline.run_auto_reply 已废弃，请使用 "
+        "core.auto_reply_orchestrator.run_once()（单次扫描）或 "
+        "start_auto_reply()（常驻循环）。"
+    )

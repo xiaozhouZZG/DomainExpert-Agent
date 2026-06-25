@@ -4,13 +4,14 @@
 提供仪表盘统计、知识库管理、对话记录查询等功能
 """
 import os
+import asyncio
 import json
 import logging
 import tempfile
 import httpx
 from datetime import datetime
 from typing import List, Dict, Any
-from fastapi import APIRouter, HTTPException, Depends, Header, UploadFile, File
+from fastapi import APIRouter, HTTPException, Depends, Header, UploadFile, File, Form
 from pydantic import BaseModel
 
 from database.connection import get_db_connection
@@ -203,8 +204,15 @@ async def list_knowledge_documents():
 @router.post("/knowledge/upload")
 async def upload_knowledge_document(
     file: UploadFile = File(...),
+    business_line: str = Form(None),
+    category: str = Form(None),
+    product_name: str = Form(None),
 ):
-    """上传文档到知识库（异步处理，支持 PDF/Word/Markdown）"""
+    """上传文档到知识库（异步处理，支持 PDF/Word/Markdown）
+
+    可选商品字段（business_line/category/product_name）用于多商品隔离，
+    入库后写入 chunks 表，检索时可按 business_line 过滤。
+    """
     from knowledge.processing_queue import get_processing_queue
 
     # 验证文件扩展名
@@ -236,7 +244,10 @@ async def upload_knowledge_document(
         doc_id = queue.submit_task(
             file_path=tmp_path,
             filename=file.filename,
-            file_type=file_ext.lstrip('.')
+            file_type=file_ext.lstrip('.'),
+            business_line=business_line,
+            category=category,
+            product_name=product_name,
         )
 
         return {
@@ -968,12 +979,15 @@ async def test_send_reply(request: dict):
         platform = GoofishPlaywrightPlatform()
 
         # 调用 send_reply（使用 approval_id="test" 绕过审批）
-        result = platform.send_reply(
-            conversation_id="test_conversation",
-            content=content,
-            approval_id="test",
-            target=target
-        )
+        def _do_send():
+            return platform.send_reply(
+                conversation_id="test_conversation",
+                content=content,
+                approval_id="test",
+                target=target
+            )
+
+        result = await asyncio.to_thread(_do_send)
 
         return {
             "status": "ok",
@@ -1012,7 +1026,10 @@ async def poll_messages():
         platform = GoofishPlaywrightPlatform()
 
         # 调用轮询（只读不发，返回三态结构）
-        result = platform.poll_unread_conversations()
+        def _do_poll():
+            return platform.poll_unread_conversations()
+
+        result = await asyncio.to_thread(_do_poll)
 
         # result 结构:
         # {
@@ -1156,7 +1173,7 @@ async def browser_release_lock():
     try:
         from platforms.browser_manager import get_goofish_browser_manager
         mgr = get_goofish_browser_manager()
-        result = mgr.force_restart()
+        result = await asyncio.to_thread(mgr.force_restart)
 
         # 清除自动客服的 profile_locked 状态
         if result.get("status") in ("released", "ok"):
@@ -1181,7 +1198,7 @@ async def browser_restart():
 
         # 重启浏览器
         mgr = get_goofish_browser_manager()
-        restart_result = mgr.force_restart()
+        restart_result = await asyncio.to_thread(mgr.force_restart)
 
         # 清除可能因 profile_locked 导致的锁定状态
         from core.auto_reply_orchestrator import clear_need_login_status
@@ -1201,15 +1218,13 @@ async def browser_restart():
 @router.post("/auto-reply")
 async def auto_reply():
     """
-    自动回复主线 — 一趟扫描，对测试白名单真发
+    自动回复单次扫描 — 走 orchestrator 编排层
 
-    poll 发现未读 → 回调 handle_buyer_message 就地处理 → 检索 → 生成 → 真发 → 硬校验
-
-    【铁律】只对测试白名单（海王星）真发，真实买家靠白名单挡死
+    调用 run_once() 执行一次完整扫描：获取未读 → 状态守卫 → 检索 → 护栏判定 → 发送/转人工
     """
     try:
-        from core.shadow_pipeline import run_auto_reply
-        result = run_auto_reply()
+        from core.auto_reply_orchestrator import run_once
+        result = run_once()
         return result
 
     except Exception as e:
@@ -1271,7 +1286,7 @@ async def shadow_pipeline_db_check(buyer_name: str = "海王星上蹿下跳的�
     查看 DB 中某会话的记录（草稿/状态），用于验证影子模式结果
     """
     try:
-        from core.shadow_pipeline import _conversation_id_for
+        from core.auto_reply_orchestrator import _conversation_id_for
         conversation_id = _conversation_id_for(buyer_name)
 
         conn = get_db_connection()

@@ -23,6 +23,7 @@ from datetime import datetime
 from typing import Any, Optional
 
 from database.connection import get_db_connection
+from core.conversation_status import should_bot_reply
 
 logger = logging.getLogger(__name__)
 
@@ -134,8 +135,16 @@ _worker_thread: Optional[threading.Thread] = None
 _stop_event = threading.Event()
 
 
+def run_once() -> dict[str, Any]:
+    """公共接口：执行一次完整扫描周期（不走常驻循环）。
+
+    供 API 端点调用，内部复用 _one_cycle。
+    """
+    return _one_cycle()
+
+
 def _one_cycle() -> dict[str, Any]:
-    """执行一个扫描周期"""
+    """执行一个扫描周期（内部实现）"""
     from core.auto_reply_adapter import get_unread_messages, send_reply
     from core.auto_reply_logic import decide_reply
 
@@ -184,6 +193,20 @@ def _one_cycle() -> dict[str, Any]:
 
         # 保存买家消息
         _save_buyer_message(msg_id, conversation_id, buyer_name, buyer_msg)
+
+        # 状态守卫：会话已转人工/已解决时机器人跳过
+        if not should_bot_reply(conversation_id):
+            feed_entry = {
+                "buyer_name": buyer_name,
+                "buyer_msg": buyer_msg,
+                "action": "skipped",
+                "reason": "会话已转人工/已解决，机器人跳过",
+                "score": 0,
+            }
+            _add_to_feed(feed_entry)
+            logger.info(f"[编排] {buyer_name} → 跳过（会话状态不允许自动回复）")
+            result["processed"] += 1
+            continue
 
         # 业务决策
         decision = decide_reply(buyer_msg, conversation_id)

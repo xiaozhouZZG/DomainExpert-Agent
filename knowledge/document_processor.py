@@ -43,7 +43,10 @@ class DocumentProcessor:
         file_path: str,
         doc_id: str,
         filename: str,
-        file_type: str
+        file_type: str,
+        business_line: str = None,
+        category: str = None,
+        product_name: str = None,
     ) -> Dict[str, Any]:
         """
         处理单个文档
@@ -53,6 +56,9 @@ class DocumentProcessor:
             doc_id: 文档ID
             filename: 文件名
             file_type: 文件类型
+            business_line: 业务线（来自上传表单，可选）
+            category: 分类（来自上传表单，可选）
+            product_name: 商品名（来自上传表单，可选）
 
         Returns:
             处理结果统计
@@ -81,7 +87,12 @@ class DocumentProcessor:
 
             # 4. 存入数据库
             logger.info(f"[4/5] 存入数据库: {len(chunked_blocks)} 个块")
-            self._save_to_database(doc_id, filename, chunked_blocks, embeddings)
+            self._save_to_database(
+                doc_id, filename, chunked_blocks, embeddings,
+                business_line=business_line,
+                category=category,
+                product_name=product_name,
+            )
 
             # 5. 更新状态：完成
             self._update_processing_status(
@@ -109,7 +120,10 @@ class DocumentProcessor:
         doc_id: str,
         filename: str,
         blocks: List[Block],
-        embeddings: List[Any]
+        embeddings: List[Any],
+        business_line: str = None,
+        category: str = None,
+        product_name: str = None,
     ):
         """
         保存到数据库
@@ -119,6 +133,9 @@ class DocumentProcessor:
             filename: 文件名
             blocks: Block列表
             embeddings: embedding列表
+            business_line: 业务线（上传表单优先）
+            category: 分类（上传表单优先）
+            product_name: 商品名（上传表单优先）
         """
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -133,7 +150,12 @@ class DocumentProcessor:
                 filename,
                 filename,
                 datetime.now().isoformat(),
-                json.dumps({"chunks_count": len(blocks)}, ensure_ascii=False)
+                json.dumps({
+                    "chunks_count": len(blocks),
+                    "business_line": business_line,
+                    "category": category,
+                    "product_name": product_name,
+                }, ensure_ascii=False)
             ))
 
             # 插入chunks记录（带embedding）
@@ -143,15 +165,31 @@ class DocumentProcessor:
                 # 序列化embedding为BLOB
                 embedding_blob = embedding.tobytes()
 
-                # metadata转JSON
-                metadata_json = json.dumps(block.metadata or {}, ensure_ascii=False)
+                # 商品字段来源优先级：上传表单 → block.metadata → 文件名推断 → None
+                block_meta = block.metadata or {}
+                chunk_business_line = business_line or block_meta.get("business_line")
+                chunk_category = category or block_meta.get("category")
+                chunk_product_name = product_name or block_meta.get("product_name")
+                # source 优先用结构化 source_file，退化到文件名
+                chunk_source = block.source_file or filename
+
+                # metadata转JSON（保留商品字段，便于检索结果回填）
+                merged_meta = dict(block_meta)
+                merged_meta.update({
+                    "business_line": chunk_business_line,
+                    "category": chunk_category,
+                    "product_name": chunk_product_name,
+                    "source": chunk_source,
+                })
+                metadata_json = json.dumps(merged_meta, ensure_ascii=False)
 
                 cursor.execute("""
                     INSERT OR REPLACE INTO chunks (
                         chunk_id, doc_id, chunk_index, text, embedding,
                         block_type, page, source_file, section_path, metadata,
+                        business_line, category, product_name, source,
                         created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     chunk_id,
                     doc_id,
@@ -163,6 +201,10 @@ class DocumentProcessor:
                     block.source_file,
                     block.section_path,
                     metadata_json,
+                    chunk_business_line,
+                    chunk_category,
+                    chunk_product_name,
+                    chunk_source,
                     datetime.now().isoformat()
                 ))
 

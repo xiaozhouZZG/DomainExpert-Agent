@@ -800,7 +800,9 @@ async function refreshAutoReplyStatus() {
         const lastScanEl = document.getElementById('auto-reply-last-scan');
         const banner = document.getElementById('need-login-banner');
         const alertText = document.getElementById('alert-text');
+        const loginBtn = document.getElementById('login-btn');
         const releaseBtn = document.getElementById('release-lock-btn');
+        const restartBtn = document.getElementById('restart-browser-btn');
         const toggle = document.getElementById('auto-reply-toggle');
 
         const status = result.status || 'stopped';
@@ -810,27 +812,43 @@ async function refreshAutoReplyStatus() {
         if (status === 'need_login') {
             statusEl.textContent = '需扫码登录';
             statusEl.style.color = '#ff6666';
-            alertText.textContent = '闲鱼登录已失效，请在浏览器窗口扫码';
+            alertText.textContent = '闲鱼登录已失效，请重新扫码登录';
+            loginBtn.style.display = 'inline-block';
             releaseBtn.style.display = 'none';
+            restartBtn.style.display = 'none';
             banner.style.display = 'flex';
             updateAutoReplyUI(false);
-            stopAutoReplyRefresh();
+            // need_login 降为低频轮询（只查状态，不刷 feed）
+            if (autoReplyRefreshTimer) {
+                clearInterval(autoReplyRefreshTimer);
+            }
+            autoReplyRefreshTimer = setInterval(() => {
+                refreshAutoReplyStatus();
+            }, 10000);
         } else if (status === 'profile_locked') {
             statusEl.textContent = '浏览器被占用';
             statusEl.style.color = '#ff6666';
-            alertText.textContent = '浏览器 profile 被旧进程占用，请点击"释放浏览器锁"一键恢复';
+            alertText.textContent = '浏览器会话被旧进程占用，请点击"释放浏览器锁"一键恢复';
+            loginBtn.style.display = 'none';
             releaseBtn.style.display = 'inline-block';
+            restartBtn.style.display = 'inline-block';
             banner.style.display = 'flex';
             updateAutoReplyUI(false);
             stopAutoReplyRefresh();
         } else if (status === 'running') {
             statusEl.textContent = '运行中';
             statusEl.style.color = '#4ade80';
+            loginBtn.style.display = 'none';
+            releaseBtn.style.display = 'none';
+            restartBtn.style.display = 'none';
             banner.style.display = 'none';
             updateAutoReplyUI(true);
         } else {
             statusEl.textContent = '已停止';
             statusEl.style.color = 'var(--text-secondary, #aaa)';
+            loginBtn.style.display = 'none';
+            releaseBtn.style.display = 'none';
+            restartBtn.style.display = 'none';
             banner.style.display = 'none';
             updateAutoReplyUI(false);
         }
@@ -921,7 +939,7 @@ async function loadPendingHandoffs() {
         const handoffs = result.handoffs || [];
 
         if (handoffs.length === 0) {
-            listEl.innerHTML = '<div style="color:var(--text-muted,#666); text-align:center; padding:20px;">机器人搞不定的会话排在这里</div>';
+            listEl.innerHTML = '<div style="color:var(--text-muted,#666); text-align:center; padding:20px;">待人工处理的会话</div>';
             return;
         }
 
@@ -937,10 +955,13 @@ async function loadPendingHandoffs() {
                 'send_failed:failed': '发送失败',
             }[h.reason] || h.reason || '其他';
 
+            const safeConvId = escapeHtml(h.conversation_id);
+            const safeBuyer = escapeHtml(h.buyer_name);
+
             html += `
                 <div style="padding:10px; border-bottom:1px solid var(--border-color,#333);">
                     <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-                        <span style="font-weight:600; font-size:13px;">${escapeHtml(h.buyer_name)}</span>
+                        <span style="font-weight:600; font-size:13px;">${safeBuyer}</span>
                         <span style="font-size:11px; color:var(--text-muted,#666);">${time}</span>
                     </div>
                     <div style="font-size:12px; color:#f59e0b; margin-bottom:4px;">
@@ -949,7 +970,10 @@ async function loadPendingHandoffs() {
                     <div style="font-size:13px; color:var(--text-secondary,#aaa); margin-bottom:8px; padding:6px 8px; background:var(--bg-primary,#252536); border-radius:4px;">
                         ${escapeHtml(h.last_msg)}
                     </div>
-                    <button onclick="markHandoffResolved('${escapeHtml(h.conversation_id)}')" style="background:#4ade80; color:#000; border:none; border-radius:4px; padding:4px 12px; font-size:12px; cursor:pointer; width:100%;">
+                    <button onclick="takeoverHandoff('${safeConvId}','${safeBuyer}')" style="background:#3b82f6; color:#fff; border:none; border-radius:4px; padding:4px 12px; font-size:12px; cursor:pointer; width:100%; margin-bottom:4px;">
+                        接手回复
+                    </button>
+                    <button onclick="markHandoffResolved('${safeConvId}')" style="background:#4ade80; color:#000; border:none; border-radius:4px; padding:4px 12px; font-size:12px; cursor:pointer; width:100%;">
                         已处理（标记解决）
                     </button>
                 </div>
@@ -959,6 +983,111 @@ async function loadPendingHandoffs() {
         listEl.innerHTML = html;
     } catch (e) {
         console.error('loadPendingHandoffs error:', e);
+    }
+}
+
+async function takeoverHandoff(conversationId, buyerName) {
+    // 调用接手接口：/api/xianyu/conversations/{conversation_id}/handoff
+    try {
+        const result = await api(`/api/xianyu/conversations/${conversationId}/handoff`, {
+            method: 'POST'
+        });
+        if (result.status === 'ok' || result.conversation_status === 'human_taking') {
+            // 接手成功后，在该条目下展开回复面板
+            const listEl = document.getElementById('handoff-list');
+            // 找到对应的 handoff 条目，替换为回复面板
+            const items = listEl.children;
+            let found = false;
+            // 重新渲染 handoffs，把当前条目替换为回复态
+            const handoffResult = await api('/api/admin/auto-reply/handoffs');
+            const handoffs = handoffResult.handoffs || [];
+            let html = '';
+            handoffs.forEach(h => {
+                if (h.conversation_id === conversationId) {
+                    // 当前接手中的显示回复面板
+                    const safeConvId = escapeHtml(h.conversation_id);
+                    const safeBuyer = escapeHtml(h.buyer_name);
+                    const time = h.updated_at ? h.updated_at.substring(11, 19) : '';
+                    html += `
+                        <div style="padding:10px; border-bottom:1px solid var(--border-color,#333);">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                                <span style="font-weight:600; font-size:13px; color:#3b82f6;">👤 ${safeBuyer}（人工中）</span>
+                                <span style="font-size:11px; color:var(--text-muted,#666);">${time}</span>
+                            </div>
+                            <div style="font-size:12px; color:#4ade80; margin-bottom:4px;">状态: 已接手</div>
+                            <div style="font-size:13px; color:var(--text-secondary,#aaa); margin-bottom:8px; padding:6px 8px; background:var(--bg-primary,#252536); border-radius:4px;">
+                                ${escapeHtml(h.last_msg)}
+                            </div>
+                            <div style="display:flex; gap:4px; margin-bottom:6px;">
+                                <textarea id="takeover-msg-${safeConvId}" style="flex:1; padding:6px 8px; border-radius:4px; border:1px solid var(--border-color,#555); background:var(--bg-primary,#252536); color:#e0e0e0; font-size:13px; resize:vertical; min-height:40px;" placeholder="输入回复内容..."></textarea>
+                            </div>
+                            <div style="display:flex; gap:4px;">
+                                <button onclick="sendTakeoverReply('${safeConvId}','${safeBuyer}')" style="flex:1; background:#3b82f6; color:#fff; border:none; border-radius:4px; padding:4px 12px; font-size:12px; cursor:pointer;">发送回复</button>
+                                <button onclick="markHandoffResolved('${safeConvId}')" style="flex:1; background:#4ade80; color:#000; border:none; border-radius:4px; padding:4px 12px; font-size:12px; cursor:pointer;">标记已解决</button>
+                            </div>
+                            <div id="takeover-result-${safeConvId}" style="margin-top:6px; font-size:12px;"></div>
+                        </div>
+                    `;
+                } else {
+                    const safeConvId = escapeHtml(h.conversation_id);
+                    const safeBuyer = escapeHtml(h.buyer_name);
+                    const time = h.updated_at ? h.updated_at.substring(11, 19) : '';
+                    const reasonLabel = {
+                        'sensitive_intent': '碰钱/敏感', 'retrieval_gray': '答不准',
+                        'retrieval_not_found': '没命中', 'llm_generation_failed': '生成失败',
+                        'send_failed:uncertain': '发送不确定', 'send_failed:failed': '发送失败',
+                    }[h.reason] || h.reason || '其他';
+                    html += `
+                        <div style="padding:10px; border-bottom:1px solid var(--border-color,#333);">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                                <span style="font-weight:600; font-size:13px;">${escapeHtml(h.buyer_name)}</span>
+                                <span style="font-size:11px; color:var(--text-muted,#666);">${time}</span>
+                            </div>
+                            <div style="font-size:12px; color:#f59e0b; margin-bottom:4px;">原因: ${escapeHtml(reasonLabel)}</div>
+                            <div style="font-size:13px; color:var(--text-secondary,#aaa); margin-bottom:8px; padding:6px 8px; background:var(--bg-primary,#252536); border-radius:4px;">${escapeHtml(h.last_msg)}</div>
+                            <button onclick="takeoverHandoff('${safeConvId}','${safeBuyer}')" style="background:#3b82f6; color:#fff; border:none; border-radius:4px; padding:4px 12px; font-size:12px; cursor:pointer; width:100%; margin-bottom:4px;">接手回复</button>
+                            <button onclick="markHandoffResolved('${safeConvId}')" style="background:#4ade80; color:#000; border:none; border-radius:4px; padding:4px 12px; font-size:12px; cursor:pointer; width:100%;">已处理</button>
+                        </div>
+                    `;
+                }
+            });
+            listEl.innerHTML = html;
+        } else {
+            alert('接手失败: ' + (result.detail || JSON.stringify(result)));
+            loadPendingHandoffs();
+        }
+    } catch (e) {
+        alert('接手请求失败: ' + e.message);
+        loadPendingHandoffs();
+    }
+}
+
+async function sendTakeoverReply(conversationId, buyerName) {
+    const textarea = document.getElementById(`takeover-msg-${conversationId}`);
+    const resultEl = document.getElementById(`takeover-result-${conversationId}`);
+    const content = textarea.value.trim();
+    if (!content) {
+        resultEl.textContent = '请输入回复内容';
+        resultEl.style.color = '#f59e0b';
+        return;
+    }
+
+    try {
+        const result = await api('/api/admin/test-send', {
+            method: 'POST',
+            body: JSON.stringify({
+                target: buyerName,
+                content: content
+            })
+        });
+        if (result.status === 'ok') {
+            resultEl.innerHTML = '<span style="color:#4ade80;">✓ 发送成功</span>';
+            textarea.value = '';
+        } else {
+            resultEl.innerHTML = `<span style="color:#ff6666;">发送失败: ${escapeHtml(result.detail || JSON.stringify(result))}</span>`;
+        }
+    } catch (e) {
+        resultEl.innerHTML = `<span style="color:#ff6666;">请求异常: ${escapeHtml(e.message)}</span>`;
     }
 }
 
@@ -1003,6 +1132,30 @@ async function releaseBrowserLock() {
     } finally {
         btn.disabled = false;
         btn.textContent = '释放浏览器锁';
+    }
+}
+
+async function restartBrowser() {
+    const btn = document.getElementById('restart-browser-btn');
+    btn.disabled = true;
+    btn.textContent = '重启中...';
+
+    try {
+        const result = await api('/api/admin/browser/restart', { method: 'POST' });
+        if (result.status === 'ok') {
+            alert('浏览器会话已重启！请刷新页面后重新开启自动客服。');
+            stopAutoReplyRefresh();
+            setTimeout(() => {
+                refreshAutoReplyStatus();
+            }, 15000); // 15秒后开始低频轮询
+        } else {
+            alert('重启失败: ' + (result.detail || JSON.stringify(result)));
+        }
+    } catch (e) {
+        alert('请求失败: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '重启浏览器';
     }
 }
 

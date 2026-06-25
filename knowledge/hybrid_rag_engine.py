@@ -40,6 +40,17 @@ def reset_hybrid_engine() -> None:
     _hybrid_engine_instance = None
 
 
+def refresh_index_after_ingest() -> None:
+    """文档入库后刷新索引（不重复加载模型，不重复写入 chunk）。
+
+    语义：reset 单例 → 获取新实例 → 触发 build_index()。
+    失败时抛异常，由调用方决定是否假成功。
+    """
+    reset_hybrid_engine()
+    engine = get_hybrid_engine()
+    engine.build_index()
+
+
 class HybridRAGEngine:
     """混合检索 RAG 引擎"""
 
@@ -170,10 +181,10 @@ class HybridRAGEngine:
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # 读取所有 chunks
+        # 读取所有 chunks（P0-5/P0-6: 带出商品隔离字段 product_name）
         cursor.execute("""
             SELECT c.chunk_id, c.text, c.embedding, c.category, c.source,
-                   c.business_line, d.title
+                   c.business_line, c.product_name, d.title
             FROM chunks c
             JOIN documents d ON c.doc_id = d.doc_id
             WHERE c.embedding IS NOT NULL
@@ -192,7 +203,7 @@ class HybridRAGEngine:
         metadatas = []
         bm25_docs = []
 
-        for chunk_id, text, embedding_blob, category, source, business_line, doc_title in rows:
+        for chunk_id, text, embedding_blob, category, source, business_line, product_name, doc_title in rows:
             embedding = np.frombuffer(embedding_blob, dtype=np.float32)
             vectors.append(embedding)
             ids.append(chunk_id)
@@ -202,6 +213,7 @@ class HybridRAGEngine:
                 "source": source or doc_title,
                 "category": category,
                 "business_line": business_line,
+                "product_name": product_name,
                 "doc_title": doc_title
             }
             metadatas.append(metadata)
@@ -273,10 +285,25 @@ class HybridRAGEngine:
                     self._hybrid_search_async(query, top_k, threshold, filter_dict)
                 )
                 loop.close()
-            return results
+            # P0-5: 统一把商品隔离字段提到结果顶层，保证 retrieval_gateway
+            # 的 business_line 过滤器读得到（向量/BM25/重排三条路径口径一致）。
+            return [self._promote_meta_fields(r) for r in results]
         except Exception as e:
             logger.error(f"混合检索失败: {e}", exc_info=True)
             raise RuntimeError(f"RAG检索失败: {e}。请检查向量模型和索引状态。")
+
+    @staticmethod
+    def _promote_meta_fields(result: Dict[str, Any]) -> Dict[str, Any]:
+        """把 metadata 里的商品隔离字段提到结果顶层（不覆盖已有顶层值）。
+
+        全链路统一：写入时 metadata 带这些字段，检索时统一从 metadata 提到顶层，
+        避免「一边写 metadata，一边读顶层」导致过滤器恒空。
+        """
+        metadata = result.get("metadata") or {}
+        for field in ("business_line", "category", "product_name", "source"):
+            if result.get(field) is None:
+                result[field] = metadata.get(field)
+        return result
 
     def _run_search_in_new_loop(self, query: str, top_k: int, threshold: float, filter_dict: dict):
         """在独立线程中创建新事件循环执行异步检索，避免与 Playwright 事件循环冲突"""

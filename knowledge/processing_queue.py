@@ -24,6 +24,9 @@ class ProcessingTask:
     file_path: str
     filename: str
     file_type: str
+    business_line: str = None
+    category: str = None
+    product_name: str = None
 
 
 class DocumentProcessingQueue:
@@ -64,7 +67,15 @@ class DocumentProcessingQueue:
             self.worker_thread.join(timeout=5)
         logger.info("✓ 文档处理队列已停止")
 
-    def submit_task(self, file_path: str, filename: str, file_type: str) -> str:
+    def submit_task(
+        self,
+        file_path: str,
+        filename: str,
+        file_type: str,
+        business_line: str = None,
+        category: str = None,
+        product_name: str = None,
+    ) -> str:
         """
         提交处理任务
 
@@ -72,6 +83,9 @@ class DocumentProcessingQueue:
             file_path: 文件路径
             filename: 文件名
             file_type: 文件类型
+            business_line: 业务线（上传表单，可选）
+            category: 分类（上传表单，可选）
+            product_name: 商品名（上传表单，可选）
 
         Returns:
             doc_id
@@ -82,7 +96,12 @@ class DocumentProcessingQueue:
         self._create_processing_status(doc_id, filename)
 
         # 提交任务
-        task = ProcessingTask(doc_id, file_path, filename, file_type)
+        task = ProcessingTask(
+            doc_id, file_path, filename, file_type,
+            business_line=business_line,
+            category=category,
+            product_name=product_name,
+        )
         self.task_queue.put(task)
 
         logger.info(f"任务已提交: {filename} (doc_id={doc_id})")
@@ -105,11 +124,19 @@ class DocumentProcessingQueue:
                         task.file_path,
                         task.doc_id,
                         task.filename,
-                        task.file_type
+                        task.file_type,
+                        business_line=task.business_line,
+                        category=task.category,
+                        product_name=task.product_name,
                     )
                     logger.info(f"✓ 任务完成: {task.filename} - {result['chunks']} 个块")
 
-                except Exception as e:
+                    # P0-4: 文档成功入库后刷新索引，使新资料无需重启即可检索。
+                    # 入库成功 ≠ 可检索成功：刷新失败时只标记 index_status，
+                    # 不把已入库文档当成完全失败（document_status 仍为 completed）。
+                    self._refresh_index_after_ingest(task.doc_id, task.filename)
+
+                except Exception:
                     logger.exception(f"✗ 任务失败: {task.filename}")
 
                 finally:
@@ -148,6 +175,50 @@ class DocumentProcessingQueue:
         finally:
             conn.close()
 
+    def _refresh_index_after_ingest(self, doc_id: str, filename: str) -> None:
+        """
+        P0-4: 文档成功入库后刷新混合检索索引。
+
+        核心原则：入库成功 ≠ 可检索成功，两个状态分清楚。
+        - 刷新成功 → index_status = 'ok'
+        - 刷新失败 → index_status = 'refresh_failed' + error_message，
+          但 document 处理状态保持 completed（资料确实已入库）。
+        """
+        try:
+            from knowledge.hybrid_rag_engine import refresh_index_after_ingest
+            refresh_index_after_ingest()
+            self._set_index_status(doc_id, "ok", None)
+            logger.info(f"✓ 索引已刷新（doc_id={doc_id}）")
+        except Exception as e:
+            logger.exception(f"✗ 索引刷新失败（doc_id={doc_id}），资料已入库但暂不可检索")
+            self._set_index_status(
+                doc_id,
+                "refresh_failed",
+                f"索引刷新失败，资料已入库但暂不可检索: {e}",
+            )
+
+    def _set_index_status(self, doc_id: str, index_status: str, error_message: str) -> None:
+        """更新 index_status（不改 document 处理状态）"""
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            if error_message is not None:
+                cursor.execute(
+                    "UPDATE document_processing_status SET index_status = ?, error_message = ? WHERE doc_id = ?",
+                    (index_status, error_message, doc_id),
+                )
+            else:
+                cursor.execute(
+                    "UPDATE document_processing_status SET index_status = ? WHERE doc_id = ?",
+                    (index_status, doc_id),
+                )
+            conn.commit()
+        except Exception:
+            logger.exception("更新 index_status 失败")
+            conn.rollback()
+        finally:
+            conn.close()
+
     def get_status(self, doc_id: str) -> Dict[str, Any]:
         """
         查询处理状态
@@ -163,7 +234,7 @@ class DocumentProcessingQueue:
 
         try:
             cursor.execute("""
-                SELECT status, progress, total_blocks, error_message, started_at, completed_at
+                SELECT status, progress, total_blocks, error_message, started_at, completed_at, index_status
                 FROM document_processing_status
                 WHERE doc_id = ?
             """, (doc_id,))
@@ -179,6 +250,7 @@ class DocumentProcessingQueue:
                 "error_message": row[3],
                 "started_at": row[4],
                 "completed_at": row[5],
+                "index_status": row[6],
             }
 
         finally:

@@ -52,9 +52,9 @@ def main():
 
     # Step 2: 运行自动回复
     logger.info("Step 2: 运行自动回复...")
-    from core.shadow_pipeline import run_auto_reply
+    from core.auto_reply_orchestrator import run_once, _conversation_id_for
 
-    result = run_auto_reply()
+    result = run_once()
 
     logger.info("=" * 60)
     logger.info("真测结果:")
@@ -63,7 +63,6 @@ def main():
 
     # Step 3: 检查 DB 记录
     logger.info("Step 3: 检查 DB 记录...")
-    from core.shadow_pipeline import _conversation_id_for
     from database.connection import get_db_connection
 
     conversation_id = _conversation_id_for("海王星上蹿下跳的豆浆")

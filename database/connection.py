@@ -422,6 +422,7 @@ def _migrate_database(cursor: sqlite3.Cursor) -> None:
                 "source": "ALTER TABLE chunks ADD COLUMN source TEXT",
                 "created_at": "ALTER TABLE chunks ADD COLUMN created_at TEXT",
                 "business_line": "ALTER TABLE chunks ADD COLUMN business_line TEXT",
+                "product_name": "ALTER TABLE chunks ADD COLUMN product_name TEXT",  # P0-6: 商品名隔离
                 "priority": "ALTER TABLE chunks ADD COLUMN priority INTEGER DEFAULT 0",
                 # 新增：知识库块结构字段
                 "block_type": "ALTER TABLE chunks ADD COLUMN block_type TEXT",  # title/heading/paragraph/table
@@ -432,6 +433,15 @@ def _migrate_database(cursor: sqlite3.Cursor) -> None:
             },
         )
         cursor.execute("UPDATE chunks SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL")
+
+        # P0-4: 区分「文档入库成功」与「索引刷新成功」两个状态
+        _ensure_columns(
+            cursor,
+            "document_processing_status",
+            {
+                "index_status": "ALTER TABLE document_processing_status ADD COLUMN index_status TEXT",  # ok/refresh_failed/None
+            },
+        )
 
         _ensure_columns(
             cursor,

@@ -24,5 +24,7 @@ async def search_kb(query: str, top_k: int = 5):
         "decision": result.get("status", "not_found"),
         "action": result.get("action", "handoff"),
         "thresholds": result.get("threshold_config", {}),
+        "degraded": result.get("degraded", False),
+        "degraded_reason": result.get("degraded_reason"),
         "message": result.get("message"),
     }

@@ -193,6 +193,15 @@ def reciprocal_rank_fusion(
     rrf_scores = defaultdict(float)
     doc_data = {}  # id -> 完整文档数据
 
+    # P0-1: 从向量结果（result_lists[0]）提取原始余弦相似度，供 reranker 降级时用
+    vector_score_map = {}
+    if result_lists:
+        vector_results = result_lists[0]
+        for r in vector_results:
+            doc_id = r.get(id_key)
+            if doc_id is not None:
+                vector_score_map[doc_id] = r.get("score", 0.0)
+
     for result_list in result_lists:
         for rank, result in enumerate(result_list, start=1):
             doc_id = result[id_key]
@@ -206,8 +215,9 @@ def reciprocal_rank_fusion(
     fused_results = []
     for doc_id, rrf_score in rrf_scores.items():
         result = doc_data[doc_id].copy()
+        result["vector_score"] = vector_score_map.get(doc_id, 0.0)  # 保留下游降级用
         result["rrf_score"] = rrf_score
-        result["score"] = rrf_score  # 用 RRF 分数作为最终分数
+        result["score"] = rrf_score  # 融合排序仍用 RRF 分数
         fused_results.append(result)
 
     # 按 RRF 分数排序

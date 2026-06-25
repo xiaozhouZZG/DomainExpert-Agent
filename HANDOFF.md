@@ -27,6 +27,7 @@
 | R-07 | should_bot_reply 在 decide_reply 之前守卫 (第 198 vs 212 行) | `orchestrator.py:197-209` | `test_should_bot_reply_integration.py` 4 条 ✅ |
 | R-04(部分) | admin.py 4 处 async 端点包 asyncio.to_thread | `admin.py:990,1032,1176,1201` | ✅ |
 | R-10/R-11 | need_login 按钮 + 释放锁按钮 + 人工接手回复 | `main.html:53-58`, `main.js:803-821` | 前端代码审查 ✅ |
+| P0-1 | reranker 优雅降级: RRF 保留 vector_score(余弦分0~1); reranker失败回退用余弦分而非RRF分(≈0.016),避免全部误判转人工; `_degraded` 贯穿 engine→gateway→API | `hybrid_retriever.py:199-202`, `hybrid_rag_engine.py:384-420`, `retrieval_gateway.py:119-121` | `test_reranker_fallback.py` 5 条 ✅ |
 
 ## 残留未修（下一批处理）
 
@@ -39,23 +40,18 @@
    - `api/xianyu.py:2320` — `dump_conversations_dom`
    - `api/xianyu.py:2567` — `dump_im_sendbox`
 
-2. **Reranker 回退分数量纲不匹配**
-   - reranker 失败时回退至 RRF 分数（≈0.016），远低于阈值 0.53/0.60
-   - 后果：reranker 不稳定期间所有查询被判定 gray/not_found → 全部转人工
-   - 位置：`hybrid_rag_engine.py:386-391` + `retrieval_gateway.py:17-21`
-
 ### P1 — 建议修
 
-3. **双阈值口径不一**：retrieval_gateway 用 `retrieval_high/low_threshold`（0.60/0.53），admin.py /rag-config 用 `rag_threshold`（0.35），互不联通，UI 改阈值不生效
+2. **双阈值口径不一**：retrieval_gateway 用 `retrieval_high/low_threshold`（0.60/0.53），admin.py /rag-config 用 `rag_threshold`（0.35），互不联通，UI 改阈值不生效
 
-4. **build_index 不持久化**：FAISS/HNSW 索引未落盘，重启后全量重建（`hybrid_rag_engine.py:172-235` 缺 `save()`）
+3. **build_index 不持久化**：FAISS/HNSW 索引未落盘，重启后全量重建（`hybrid_rag_engine.py:172-235` 缺 `save()`）
 
-5. **多处绕 ConfigManager 直接读 os.getenv**：`database/connection.py:11`、`admin.py:542-544`、`langgraph_engine.py:28-38`、`embedder.py:19`、`reranker.py:12`
+4. **多处绕 ConfigManager 直接读 os.getenv**：`database/connection.py:11`、`admin.py:542-544`、`langgraph_engine.py:28-38`、`embedder.py:19`、`reranker.py:12`
 
-6. **PDF 表格丢失 + TXT 不支持**：`structured_loader.py:190-236` 仅 text 提取；`parsers dict:247` 无 txt 解析器
+5. **PDF 表格丢失 + TXT 不支持**：`structured_loader.py:190-236` 仅 text 提取；`parsers dict:247` 无 txt 解析器
 
-7. **裸 except 50+ 处**：数处吞异常返回假成功（`admin.py:186`、`llm_client.py:324,431,532`、`xianyu.py:2308`）
+6. **裸 except 50+ 处**：数处吞异常返回假成功（`admin.py:186`、`llm_client.py:324,431,532`、`xianyu.py:2308`）
 
 ### 历史预存（先于本会话存在）
 
-8. **test_regressions.py:45** — `ensure_db_ready()` 空库返 `seeded=False`，seed 逻辑未走通
+7. **test_regressions.py:45** — `ensure_db_ready()` 空库返 `seeded=False`，seed 逻辑未走通

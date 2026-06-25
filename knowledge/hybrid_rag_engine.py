@@ -381,14 +381,29 @@ class HybridRAGEngine:
                 c["content"] = c["metadata"].get("content", "")
 
         # ===== 步骤③: CrossEncoder 重排 =====
+        degraded_flag = False
+        degraded_reason = None
         if self.reranker and candidates:
             try:
                 reranked = self.reranker.rerank(query, candidates, top_k=self.rerank_top_k)
             except Exception as e:
-                logger.error(f"重排失败，使用融合分数: {e}")
+                logger.error(f"重排失败，降级到余弦分: {e}")
+                # P0-1: 回退到 RRF 前保存的向量余弦相似度，保持 0~1 量纲
+                for c in candidates:
+                    c["score"] = c.get("vector_score", 0.0)
+                candidates.sort(key=lambda x: x["score"], reverse=True)
                 reranked = candidates[:self.rerank_top_k]
+                degraded_flag = True
+                degraded_reason = "reranker_unavailable"
         else:
+            # 没有 reranker：直接用余弦分
+            for c in candidates:
+                c["score"] = c.get("vector_score", 0.0)
+            candidates.sort(key=lambda x: x["score"], reverse=True)
             reranked = candidates[:self.rerank_top_k]
+            if self.reranker is None:
+                degraded_flag = True
+                degraded_reason = "reranker_not_loaded"
 
         # ===== 步骤④: 阈值兜底 =====
         if reranked:
@@ -401,6 +416,12 @@ class HybridRAGEngine:
                 final_results = reranked[:top_k]
         else:
             final_results = []
+
+        # P0-1: 降级信号写到每个结果上，透传到 retrieval_gateway
+        if degraded_flag and final_results:
+            for r in final_results:
+                r["_degraded"] = True
+                r["_degraded_reason"] = degraded_reason
 
         # ===== 步骤⑤b: 写入缓存 =====
         if self.semantic_cache and final_results:

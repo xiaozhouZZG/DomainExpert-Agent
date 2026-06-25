@@ -116,6 +116,10 @@ def search_with_confidence(
 
     top1_score = results[0].get('score', 0.0)
 
+    # P0-1: 提取降级信号（从第一个结果读，同批所有结果标记一致）
+    degraded = bool(results[0].get('_degraded', False))
+    degraded_reason = results[0].get('_degraded_reason') if degraded else None
+
     # 三段式判定
     if top1_score >= high_threshold:
         # 高置信度：可直接作答
@@ -125,7 +129,9 @@ def search_with_confidence(
             'results': results,
             'action': 'answer',
             'message': None,
-            'threshold_config': thresholds
+            'threshold_config': thresholds,
+            'degraded': degraded,
+            'degraded_reason': degraded_reason,
         }
 
     elif top1_score >= low_threshold:
@@ -136,7 +142,9 @@ def search_with_confidence(
             'results': results,
             'action': gray_action,  # 'handoff' 或 'fallback'
             'message': '这个问题我不太确定，建议转人工处理' if gray_action == 'handoff' else None,
-            'threshold_config': thresholds
+            'threshold_config': thresholds,
+            'degraded': degraded,
+            'degraded_reason': degraded_reason,
         }
 
     else:
@@ -147,7 +155,9 @@ def search_with_confidence(
             'results': [],
             'action': 'handoff',
             'message': '抱歉，这个问题我没有找到可靠答案，帮您转人工处理',
-            'threshold_config': thresholds
+            'threshold_config': thresholds,
+            'degraded': degraded,
+            'degraded_reason': degraded_reason,
         }
 
 

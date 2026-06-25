@@ -2317,7 +2317,9 @@ async def dump_conversations_dom():
 
             return result
 
-        result = platform.browser_manager.with_page("dump_conversations", action)
+        def _do_dump():
+            return platform.browser_manager.with_page("dump_conversations", action)
+        result = await asyncio.to_thread(_do_dump)
         return {
             "status": "success",
             "data": result,
@@ -2564,7 +2566,9 @@ async def dump_im_sendbox():
 
             return result
 
-        result = platform.browser_manager.with_page("dump_im_sendbox", action)
+        def _do_dump_sendbox():
+            return platform.browser_manager.with_page("dump_im_sendbox", action)
+        result = await asyncio.to_thread(_do_dump_sendbox)
         return {
             "status": "success",
             "data": result,

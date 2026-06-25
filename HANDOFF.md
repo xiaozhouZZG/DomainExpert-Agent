@@ -25,20 +25,14 @@
 | R-02c | test_auto_reply.py 去掉 shadow_pipeline import | `test_auto_reply.py:55,66` | 差异确认 ✅ |
 | R-03 | /api/kb/search 走 search_with_confidence 三段式护栏 | `knowledge.py:15-28` | `test_search_guardrail_integration.py` 4 条 ✅ |
 | R-07 | should_bot_reply 在 decide_reply 之前守卫 (第 198 vs 212 行) | `orchestrator.py:197-209` | `test_should_bot_reply_integration.py` 4 条 ✅ |
-| R-04(部分) | admin.py 4 处 async 端点包 asyncio.to_thread | `admin.py:990,1032,1176,1201` | ✅ |
+| R-04(admin) | admin.py 4 处 async 端点包 asyncio.to_thread | `admin.py:990,1032,1176,1201` | ✅ |
+| R-04(收尾) | xianyu_dump.py 3 个 debug 端点 + xianyu.py:2320,2567 同步 Playwright 调用收进内部函数+asyncio.to_thread 解阻塞,与 admin.py 模式一致,不再阻塞事件循环;未动业务逻辑 | `xianyu_dump.py:19,46,81`, `xianyu.py:2320-2322,2569-2571` | py_compile 通过 + 回归 48 passed 无新增失败 ✅ |
 | R-10/R-11 | need_login 按钮 + 释放锁按钮 + 人工接手回复 | `main.html:53-58`, `main.js:803-821` | 前端代码审查 ✅ |
 | P0-1 | reranker 优雅降级: RRF 保留 vector_score(余弦分0~1); reranker失败回退用余弦分而非RRF分(≈0.016),避免全部误判转人工; `_degraded` 贯穿 engine→gateway→API | `hybrid_retriever.py:199-202`, `hybrid_rag_engine.py:384-420`, `retrieval_gateway.py:119-121` | `test_reranker_fallback.py` 5 条 ✅ |
 
+至此 P0 全部清零。
+
 ## 残留未修（下一批处理）
-
-### P0 — 必须修
-
-1. **R-04 仍漏 5 处 async -> sync Playwright 阻塞**
-   - `api/xianyu_dump.py:17` — `/debug/dump-conversations`
-   - `api/xianyu_dump.py:40` — `/debug/dump-current-page`
-   - `api/xianyu_dump.py:72` — `/conversations`
-   - `api/xianyu.py:2320` — `dump_conversations_dom`
-   - `api/xianyu.py:2567` — `dump_im_sendbox`
 
 ### P1 — 建议修
 

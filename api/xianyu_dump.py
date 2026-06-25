@@ -1,4 +1,6 @@
 """临时dump API端点"""
+import asyncio
+
 from fastapi import APIRouter
 import logging
 
@@ -14,7 +16,10 @@ async def dump_conversations_dom():
         from platforms.dump_conversations_helper import dump_conversations_action
 
         platform = GoofishPlaywrightPlatform()
-        result = platform.browser_manager.with_page("dump_conversations", dump_conversations_action)
+
+        def _do_dump():
+            return platform.browser_manager.with_page("dump_conversations", dump_conversations_action)
+        result = await asyncio.to_thread(_do_dump)
 
         return {
             "status": "success",
@@ -37,7 +42,10 @@ async def dump_current_page():
         from platforms.dump_current_page_helper import dump_current_page_action
 
         platform = GoofishPlaywrightPlatform()
-        result = platform.browser_manager.with_page("dump_current_page", dump_current_page_action)
+
+        def _do_dump_current():
+            return platform.browser_manager.with_page("dump_current_page", dump_current_page_action)
+        result = await asyncio.to_thread(_do_dump_current)
 
         return {
             "status": "success",
@@ -69,7 +77,10 @@ async def get_conversations():
             }
 
         platform = GoofishPlaywrightPlatform()
-        result = platform.browser_manager.with_page("fetch_conversations", fetch_conversations_action)
+
+        def _do_fetch():
+            return platform.browser_manager.with_page("fetch_conversations", fetch_conversations_action)
+        result = await asyncio.to_thread(_do_fetch)
 
         if result.get("error"):
             return {

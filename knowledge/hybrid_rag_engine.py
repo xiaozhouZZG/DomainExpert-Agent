@@ -126,7 +126,8 @@ class HybridRAGEngine:
             from .reranker import BGEReranker
             from .vector_index import create_vector_index
             from .hybrid_retriever import BM25Retriever
-            from .semantic_cache import SemanticCache, EmbeddingCache
+            # semantic_cache 是可选加速件：import 延后到缓存初始化处并包降级，
+            # 避免该可选模块缺失/加载失败时拖垮整个引擎（embedder 等硬依赖照常 raise）。
 
             # 向量化器（必须成功）
             try:
@@ -155,13 +156,19 @@ class HybridRAGEngine:
             # BM25 检索器（与向量混合使用，非降级）
             self.bm25 = BM25Retriever(k1=self.bm25_k1, b=self.bm25_b)
 
-            # 缓存
+            # 缓存（可选加速件：缺失或加载失败时降级为无缓存，绝不拖垮引擎，与 reranker 同款降级）
             if self.enable_cache:
-                self.semantic_cache = SemanticCache(
-                    ttl=self.cache_ttl,
-                    similarity_threshold=self.cache_sim_threshold
-                )
-                self.embedding_cache = EmbeddingCache()
+                try:
+                    from .semantic_cache import SemanticCache, EmbeddingCache
+                    self.semantic_cache = SemanticCache(
+                        ttl=self.cache_ttl,
+                        similarity_threshold=self.cache_sim_threshold
+                    )
+                    self.embedding_cache = EmbeddingCache()
+                except Exception as e:
+                    logger.warning(f"语义缓存加载失败，降级为无缓存模式: {e}")
+                    self.semantic_cache = None
+                    self.embedding_cache = None
 
             logger.info("✓ 所有检索组件初始化完成（向量+BM25混合模式）")
 

@@ -133,6 +133,7 @@ def _mark_handoff(conversation_id: str, reason: str, buyer_msg: str, score: floa
 
 _worker_thread: Optional[threading.Thread] = None
 _stop_event = threading.Event()
+_cycle_lock = threading.Lock()   # #41: 同一时刻只允许一个扫描周期跑（非阻塞跳过）
 
 
 def run_once() -> dict[str, Any]:
@@ -144,114 +145,129 @@ def run_once() -> dict[str, Any]:
 
 
 def _one_cycle() -> dict[str, Any]:
-    """执行一个扫描周期（内部实现）"""
-    from core.auto_reply_adapter import get_unread_messages, send_reply
-    from core.auto_reply_logic import decide_reply
+    """执行一个扫描周期（内部实现）。
 
-    result = {"scanned": 0, "processed": 0, "errors": []}
+    #41: 非阻塞互斥——并发(端点 to_thread 线程 + 后台 worker_loop 线程)撞上时，
+    拿不到锁的直接跳过本轮，避免重复 poll/重复回复；跳过的消息靠 worker_loop
+    下一轮(8~10s)兜底，不真漏。普通 Lock 不可重入，body 无自调 _one_cycle，安全。
+    """
+    if not _cycle_lock.acquire(blocking=False):
+        logger.info("[编排] 上一轮扫描仍在运行，本轮跳过（非阻塞）")
+        return {
+            "status": "skipped_locked",
+            "scanned": 0, "processed": 0, "errors": [],
+            "detail": "扫描周期正在运行，已跳过本轮",
+        }
+    try:
+        from core.auto_reply_adapter import get_unread_messages, send_reply
+        from core.auto_reply_logic import decide_reply
 
-    # 1. 获取未读
-    unread = get_unread_messages()
-    status = unread.get("status", "error")
+        result = {"scanned": 0, "processed": 0, "errors": []}
 
-    if status == "need_login":
-        _set_config("auto_reply_status", "need_login")
-        logger.warning("[编排] 需要登录，自动暂停")
-        return {"status": "need_login", "detail": "需要扫码登录"}
+        # 1. 获取未读
+        unread = get_unread_messages()
+        status = unread.get("status", "error")
 
-    if status == "profile_locked":
-        _set_config("auto_reply_status", "profile_locked")
-        logger.warning("[编排] profile 被占用，自动暂停")
-        return {"status": "profile_locked", "detail": unread.get("detail", "")}
+        if status == "need_login":
+            _set_config("auto_reply_status", "need_login")
+            logger.warning("[编排] 需要登录，自动暂停")
+            return {"status": "need_login", "detail": "需要扫码登录"}
 
-    if status == "error":
-        logger.error(f"[编排] get_unread 失败: {unread.get('detail')}")
-        return {"status": "error", "detail": unread.get("detail")}
+        if status == "profile_locked":
+            _set_config("auto_reply_status", "profile_locked")
+            logger.warning("[编排] profile 被占用，自动暂停")
+            return {"status": "profile_locked", "detail": unread.get("detail", "")}
 
-    messages = unread.get("messages", [])
-    result["scanned"] = len(messages)
+        if status == "error":
+            logger.error(f"[编排] get_unread 失败: {unread.get('detail')}")
+            return {"status": "error", "detail": unread.get("detail")}
 
-    # 2. 逐条处理
-    for msg in messages:
-        buyer_name = msg.get("buyer_name", "")
-        buyer_msg = msg.get("last_buyer_msg", "")
-        conversation_id = _conversation_id_for(buyer_name)
+        messages = unread.get("messages", [])
+        result["scanned"] = len(messages)
 
-        # 去重
-        now_iso = datetime.now().isoformat()
-        msg_id = _message_id_for(conversation_id, buyer_msg, now_iso)
+        # 2. 逐条处理
+        for msg in messages:
+            buyer_name = msg.get("buyer_name", "")
+            buyer_msg = msg.get("last_buyer_msg", "")
+            conversation_id = _conversation_id_for(buyer_name)
 
-        conn = get_db_connection()
-        try:
-            cursor = conn.cursor()
-            cursor.execute("SELECT 1 FROM xianyu_messages WHERE message_id = ? AND draft_reply IS NOT NULL", (msg_id,))
-            if cursor.fetchone():
-                logger.info(f"[编排] 跳过已处理: {buyer_name}")
+            # 去重
+            now_iso = datetime.now().isoformat()
+            msg_id = _message_id_for(conversation_id, buyer_msg, now_iso)
+
+            conn = get_db_connection()
+            try:
+                cursor = conn.cursor()
+                cursor.execute("SELECT 1 FROM xianyu_messages WHERE message_id = ? AND draft_reply IS NOT NULL", (msg_id,))
+                if cursor.fetchone():
+                    logger.info(f"[编排] 跳过已处理: {buyer_name}")
+                    continue
+            finally:
+                conn.close()
+
+            # 保存买家消息
+            _save_buyer_message(msg_id, conversation_id, buyer_name, buyer_msg)
+
+            # 状态守卫：会话已转人工/已解决时机器人跳过
+            if not should_bot_reply(conversation_id):
+                feed_entry = {
+                    "buyer_name": buyer_name,
+                    "buyer_msg": buyer_msg,
+                    "action": "skipped",
+                    "reason": "会话已转人工/已解决，机器人跳过",
+                    "score": 0,
+                }
+                _add_to_feed(feed_entry)
+                logger.info(f"[编排] {buyer_name} → 跳过（会话状态不允许自动回复）")
+                result["processed"] += 1
                 continue
-        finally:
-            conn.close()
 
-        # 保存买家消息
-        _save_buyer_message(msg_id, conversation_id, buyer_name, buyer_msg)
+            # 业务决策
+            decision = decide_reply(buyer_msg, conversation_id)
+            action = decision.get("action", "handoff")
+            reply_text = decision.get("text", "")
+            score = decision.get("score", 0.0)
+            reason = decision.get("reason", "")
 
-        # 状态守卫：会话已转人工/已解决时机器人跳过
-        if not should_bot_reply(conversation_id):
             feed_entry = {
                 "buyer_name": buyer_name,
                 "buyer_msg": buyer_msg,
-                "action": "skipped",
-                "reason": "会话已转人工/已解决，机器人跳过",
-                "score": 0,
+                "action": action,
+                "score": score,
+                "reason": reason,
             }
-            _add_to_feed(feed_entry)
-            logger.info(f"[编排] {buyer_name} → 跳过（会话状态不允许自动回复）")
-            result["processed"] += 1
-            continue
 
-        # 业务决策
-        decision = decide_reply(buyer_msg, conversation_id)
-        action = decision.get("action", "handoff")
-        reply_text = decision.get("text", "")
-        score = decision.get("score", 0.0)
-        reason = decision.get("reason", "")
+            if action == "handoff":
+                _mark_handoff(conversation_id, reason, buyer_msg, score)
+                feed_entry["reply"] = ""
+                _add_to_feed(feed_entry)
+                logger.info(f"[编排] {buyer_name} → handoff({reason})")
+                result["processed"] += 1
+                continue
 
-        feed_entry = {
-            "buyer_name": buyer_name,
-            "buyer_msg": buyer_msg,
-            "action": action,
-            "score": score,
-            "reason": reason,
-        }
+            # 发送回复
+            send_result = send_reply(conversation_id, buyer_name, reply_text)
+            send_status = send_result.get("status", "failed")
 
-        if action == "handoff":
-            _mark_handoff(conversation_id, reason, buyer_msg, score)
-            feed_entry["reply"] = ""
-            _add_to_feed(feed_entry)
-            logger.info(f"[编排] {buyer_name} → handoff({reason})")
-            result["processed"] += 1
-            continue
+            if send_status == "sent":
+                _save_sent_reply(msg_id, conversation_id, reply_text, score)
+                feed_entry["reply"] = reply_text
+                _add_to_feed(feed_entry)
+                logger.info(f"[编排] {buyer_name} → 发送成功: {reply_text[:50]}...")
+                result["processed"] += 1
+            elif send_status == "need_login":
+                _set_config("auto_reply_status", "need_login")
+                return {"status": "need_login", "detail": "需要扫码登录"}
+            else:
+                _mark_handoff(conversation_id, f"send_failed:{send_status}", buyer_msg, score)
+                feed_entry["reply"] = f"发送失败: {send_result.get('detail', '')}"
+                _add_to_feed(feed_entry)
+                result["errors"].append(f"{buyer_name}: 发送失败")
 
-        # 发送回复
-        send_result = send_reply(conversation_id, buyer_name, reply_text)
-        send_status = send_result.get("status", "failed")
-
-        if send_status == "sent":
-            _save_sent_reply(msg_id, conversation_id, reply_text, score)
-            feed_entry["reply"] = reply_text
-            _add_to_feed(feed_entry)
-            logger.info(f"[编排] {buyer_name} → 发送成功: {reply_text[:50]}...")
-            result["processed"] += 1
-        elif send_status == "need_login":
-            _set_config("auto_reply_status", "need_login")
-            return {"status": "need_login", "detail": "需要扫码登录"}
-        else:
-            _mark_handoff(conversation_id, f"send_failed:{send_status}", buyer_msg, score)
-            feed_entry["reply"] = f"发送失败: {send_result.get('detail', '')}"
-            _add_to_feed(feed_entry)
-            result["errors"].append(f"{buyer_name}: 发送失败")
-
-    _set_config("auto_reply_last_scan", datetime.now().isoformat())
-    return {"status": "ok", **result}
+        _set_config("auto_reply_last_scan", datetime.now().isoformat())
+        return {"status": "ok", **result}
+    finally:
+        _cycle_lock.release()
 
 
 def _worker_loop() -> None:

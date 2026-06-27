@@ -72,6 +72,8 @@ def _enforce_single_port() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 启动时
+    if settings.admin_password == "admin123":
+        logger.warning("⚠️ ADMIN_PASSWORD 仍为默认弱密码 admin123，生产环境必须设置环境变量 ADMIN_PASSWORD")
     from knowledge.processing_queue import start_processing_queue
     start_processing_queue()
 
@@ -127,6 +129,8 @@ from middleware.request_logger import RequestLoggerMiddleware
 app.add_middleware(RequestLoggerMiddleware)
 app.mount("/static", StaticFiles(directory="web/static"), name="static")
 
+from fastapi import Depends
+from api.auth import verify_token
 from api.admin import router as admin_router
 from api.chat import router as chat_router
 from api.dashboard import router as dashboard_router
@@ -135,13 +139,16 @@ from api.sessions import router as sessions_router
 from api.xianyu import router as xianyu_router
 from api.xianyu_dump import router as xianyu_dump_router
 
-app.include_router(chat_router)
-app.include_router(kb_router)
-app.include_router(admin_router)
-app.include_router(dashboard_router)
-app.include_router(sessions_router, prefix="/api")
-app.include_router(xianyu_router)
-app.include_router(xianyu_dump_router, prefix="/api/xianyu")
+# ①全站鉴权: include 层挂 verify_token, 保护全部业务 router;
+# 公开端点(/ /admin /static)是 app 级路由/挂载, 不经 include, 不受影响。
+_auth = [Depends(verify_token)]
+app.include_router(chat_router, dependencies=_auth)
+app.include_router(kb_router, dependencies=_auth)
+app.include_router(admin_router, dependencies=_auth)
+app.include_router(dashboard_router, dependencies=_auth)
+app.include_router(sessions_router, prefix="/api", dependencies=_auth)
+app.include_router(xianyu_router, dependencies=_auth)
+app.include_router(xianyu_dump_router, prefix="/api/xianyu", dependencies=_auth)
 
 
 @app.get("/")

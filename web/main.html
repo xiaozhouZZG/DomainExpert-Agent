@@ -7,6 +7,18 @@
     <link rel="stylesheet" href="/static/main.css">
 </head>
 <body>
+    <!-- ①鉴权: 登录覆盖层, 默认显示, 验证通过后 JS 隐藏 -->
+    <div id="loginScreen" style="position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:#1a1a2e;">
+      <div style="background:#1e1e2e;padding:32px;border-radius:12px;border:1px solid #333;width:320px;">
+        <h2 style="color:#e0e0e0;margin:0 0 8px;font-size:20px;">闲鱼助手登录</h2>
+        <p style="color:#888;font-size:13px;margin:0 0 16px;">请输入访问令牌（ADMIN_PASSWORD）</p>
+        <input type="password" id="tokenInput" placeholder="输入 Token" onkeypress="if(event.key==='Enter')login()"
+               style="width:100%;box-sizing:border-box;padding:10px;background:#15151f;border:1px solid #333;border-radius:6px;color:#e0e0e0;margin-bottom:12px;">
+        <button onclick="login()" style="width:100%;padding:10px;background:#FFC60A;color:#333;border:none;border-radius:6px;font-weight:600;cursor:pointer;">登录</button>
+        <div id="loginError" style="display:none;color:#ff6666;font-size:13px;margin-top:10px;"></div>
+      </div>
+    </div>
+
     <div class="app-container">
         <!-- 左侧导航 -->
         <nav class="sidebar">

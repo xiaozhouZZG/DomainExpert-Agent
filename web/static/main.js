@@ -9,6 +9,7 @@ const state = {
 async function api(path, options = {}) {
     const headers = {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('adminToken') || ''}`,
         ...options.headers
     };
 
@@ -17,7 +18,42 @@ async function api(path, options = {}) {
         headers
     });
 
+    if (response.status === 401) {   // ①鉴权: token 缺失/失效 → 跳登录
+        showLogin();
+        throw new Error('未授权(401)');
+    }
     return response.json();
+}
+
+// ========== ①鉴权: 登录 gate（与 admin.html 共享 localStorage.adminToken）==========
+function showLogin() {
+    document.getElementById('loginScreen').style.display = 'flex';
+}
+
+async function login() {
+    const t = document.getElementById('tokenInput').value.trim();
+    const err = document.getElementById('loginError');
+    if (!t) { err.textContent = '请输入令牌'; err.style.display = 'block'; return; }
+    localStorage.setItem('adminToken', t);
+    try {
+        await api('/api/admin/dashboard');          // 与 admin.html 同款验证端点
+        document.getElementById('loginScreen').style.display = 'none';
+        boot();
+    } catch {
+        localStorage.removeItem('adminToken');
+        err.textContent = 'Token 无效，请重试'; err.style.display = 'block';
+    }
+}
+
+function boot() {   // 原两个 DOMContentLoaded 的初始化, 验证通过后才跑
+    initNavigation();
+    initResearchTabs();
+    switchModule('messages');
+    setTimeout(() => {
+        refreshAutoReplyStatus();
+        refreshAutoReplyFeed();
+        loadPendingHandoffs();
+    }, 500);
 }
 
 // 导航切换
@@ -647,12 +683,14 @@ function renderConversations(data) {
 
 // ==================== 初始化 ====================
 
-document.addEventListener('DOMContentLoaded', () => {
-    initNavigation();
-    initResearchTabs();
-
-    // 默认加载消息模块（占位）
-    switchModule('messages');
+document.addEventListener('DOMContentLoaded', async () => {
+    // ①鉴权启动 gate: 先验 token, 通过才初始化工作台(否则停在登录框, 不调任何 API)
+    const token = localStorage.getItem('adminToken');
+    if (!token) { showLogin(); return; }
+    try { await api('/api/admin/dashboard'); }      // 验证已存 token
+    catch { showLogin(); return; }                  // 失效 → 登录
+    document.getElementById('loginScreen').style.display = 'none';
+    boot();
 });
 
 // ==================== 查看对话 ====================
@@ -1159,11 +1197,4 @@ async function restartBrowser() {
     }
 }
 
-// 页面加载时初始化自动客服状态
-document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => {
-        refreshAutoReplyStatus();
-        refreshAutoReplyFeed();
-        loadPendingHandoffs();
-    }, 500);
-});
+// 页面加载时初始化自动客服状态 —— 已并入 boot()，由 ①鉴权启动 gate 统一触发(验证通过后)

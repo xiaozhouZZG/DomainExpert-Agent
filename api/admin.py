@@ -1224,7 +1224,10 @@ async def auto_reply():
     """
     try:
         from core.auto_reply_orchestrator import run_once
-        result = run_once()
+        # #2: run_once 内同步阻塞(httpx 60s / Playwright worker / time.sleep)挪出事件循环线程，
+        # 避免阻塞整个服务。run_once 内 Playwright 已走 browser_worker，从 to_thread 线程调
+        # worker.execute 仍串行安全，不与常驻浏览器单例冲突。
+        result = await asyncio.to_thread(run_once)
         return result
 
     except Exception as e:

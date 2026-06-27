@@ -103,6 +103,34 @@ def search_with_confidence(
     if business_line:
         results = [r for r in results if r.get('business_line') == business_line]
 
+    # 第2层: 读引擎索引健康（无论 results 空否都拿得到故障信号）
+    health = engine.index_health() if hasattr(engine, "index_health") else {"status": "ok", "degraded_reason": None}
+    index_status = health.get("status")
+
+    # 降级信号合并，优先级: index 故障 > reranker 降级 > schema 漂移
+    item_degraded = bool(results and results[0].get('_degraded', False))
+    if index_status == "build_failed":
+        degraded, degraded_reason = True, (health.get("degraded_reason") or "index_build_failed")
+    elif item_degraded:
+        degraded, degraded_reason = True, results[0].get('_degraded_reason')
+    elif index_status == "schema_degraded":
+        degraded, degraded_reason = True, (health.get("degraded_reason") or "schema_missing_columns")
+    else:
+        degraded, degraded_reason = False, None
+
+    # build_failed: 系统故障，强制 not_found 转人工 + 响亮信号，绝不伪装成"正常无答案"
+    if index_status == "build_failed":
+        return {
+            'status': 'not_found',
+            'confidence_score': 0.0,
+            'results': [],
+            'action': 'handoff',
+            'message': '检索系统索引异常，已转人工（系统故障，非正常无答案）',
+            'threshold_config': thresholds,
+            'degraded': True,
+            'degraded_reason': degraded_reason,
+        }
+
     # 判定置信度
     if not results:
         return {
@@ -111,14 +139,12 @@ def search_with_confidence(
             'results': [],
             'action': 'fallback',
             'message': '知识库暂时没有相关信息',
-            'threshold_config': thresholds
+            'threshold_config': thresholds,
+            'degraded': degraded,
+            'degraded_reason': degraded_reason,
         }
 
     top1_score = results[0].get('score', 0.0)
-
-    # P0-1: 提取降级信号（从第一个结果读，同批所有结果标记一致）
-    degraded = bool(results[0].get('_degraded', False))
-    degraded_reason = results[0].get('_degraded_reason') if degraded else None
 
     # 三段式判定
     if top1_score >= high_threshold:

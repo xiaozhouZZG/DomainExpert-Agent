@@ -72,6 +72,9 @@ class HybridRAGEngine:
 
         # 索引是否已构建
         self._index_built = False
+        # 第2层: 索引健康状态（让 retrieval_gateway 无论检索结果空否都读得到故障信号）
+        self._index_status = "unknown"        # unknown|ok|empty|schema_degraded|build_failed
+        self._index_degraded_reason = None    # schema_degraded/build_failed 时的原因
 
         logger.info(f"✓ HybridRAGEngine 初始化完成（向量+BM25混合）")
 
@@ -179,38 +182,63 @@ class HybridRAGEngine:
     def build_index(self):
         """从数据库构建索引（FAISS + BM25）
 
-        从 chunks 表读取所有数据，构建向量索引和 BM25 索引
+        从 chunks 表读取所有数据，构建向量索引和 BM25 索引。
+        第2层: 先 PRAGMA 检测 chunks 列做分层（只读检测，不迁移）——
+        缺核心列(chunk_id/text/embedding)=build_failed；
+        缺可选列(隔离/元数据)=用 NULL 兜底 + schema_degraded 告警，索引仍可用。
         """
         if self.mode != "vector":
             logger.info("关键词模式，无需构建向量索引")
             return
 
+        CORE_COLS = {"chunk_id", "text", "embedding"}                          # 缺=真故障
+        OPTIONAL_COLS = ["category", "source", "business_line", "product_name"]  # 缺=None兜底
+
         conn = get_db_connection()
         cursor = conn.cursor()
 
         # 读取所有 chunks（P0-5/P0-6: 带出商品隔离字段 product_name）
-        cursor.execute("""
-            SELECT c.chunk_id, c.text, c.embedding, c.category, c.source,
-                   c.business_line, c.product_name, d.title
-            FROM chunks c
-            JOIN documents d ON c.doc_id = d.doc_id
-            WHERE c.embedding IS NOT NULL
-        """)
-
-        rows = cursor.fetchall()
-        conn.close()
+        try:
+            existing = {r[1] for r in cursor.execute("PRAGMA table_info(chunks)")}
+            missing_core = CORE_COLS - existing
+            if missing_core:
+                self._index_status = "build_failed"
+                self._index_degraded_reason = f"chunks_missing_core_columns:{sorted(missing_core)}"
+                logger.error(f"build_index 失败: chunks 缺核心列 {sorted(missing_core)}，无法构建索引")
+                return
+            missing_optional = [c for c in OPTIONAL_COLS if c not in existing]
+            # 缺的可选列用 NULL AS 占位 → SELECT 列数/顺序恒定，下面解包稳定
+            opt_sql = ", ".join(f"c.{c}" if c in existing else f"NULL AS {c}" for c in OPTIONAL_COLS)
+            cursor.execute(f"""
+                SELECT c.chunk_id, c.text, c.embedding, {opt_sql}, d.title
+                FROM chunks c
+                JOIN documents d ON c.doc_id = d.doc_id
+                WHERE c.embedding IS NOT NULL
+            """)
+            rows = cursor.fetchall()
+        except Exception as e:
+            self._index_status = "build_failed"
+            self._index_degraded_reason = f"build_index_query_error:{e}"
+            logger.error(f"build_index 查询失败: {e}", exc_info=True)
+            return
+        finally:
+            conn.close()
 
         if not rows:
+            self._index_status = "empty"
+            self._index_degraded_reason = None
             logger.warning("无可索引数据")
             return
 
-        # 构建向量索引
+        # 构建向量索引（row 顺序: chunk_id, text, embedding, category, source, business_line, product_name, doc_title）
         vectors = []
         ids = []
         metadatas = []
         bm25_docs = []
 
-        for chunk_id, text, embedding_blob, category, source, business_line, product_name, doc_title in rows:
+        for row in rows:
+            chunk_id, text, embedding_blob = row[0], row[1], row[2]
+            category, source, business_line, product_name, doc_title = row[3], row[4], row[5], row[6], row[7]
             embedding = np.frombuffer(embedding_blob, dtype=np.float32)
             vectors.append(embedding)
             ids.append(chunk_id)
@@ -239,7 +267,19 @@ class HybridRAGEngine:
         self.bm25.build_index(bm25_docs)
 
         self._index_built = True
-        logger.info(f"✓ 索引构建完成: {len(rows)} 个 chunks")
+
+        if missing_optional:
+            # 可选列缺失：NULL 兜底，索引可用，仅附加 degraded 告警（不改变三段式判定）
+            self._index_status = "schema_degraded"
+            self._index_degraded_reason = f"schema_missing_columns:{missing_optional}"
+            logger.error(
+                f"build_index 完成但 chunks 缺可选列 {missing_optional}，已用 NULL 兜底；"
+                f"请补迁移(ensure_db_ready) 后 reset_hybrid_engine 重建"
+            )
+        else:
+            self._index_status = "ok"
+            self._index_degraded_reason = None
+        logger.info(f"✓ 索引构建完成: {len(rows)} 个 chunks (status={self._index_status})")
 
     def search(
         self,
@@ -263,12 +303,14 @@ class HybridRAGEngine:
         top_k = top_k or self.final_top_k
         threshold = threshold if threshold is not None else self.relevance_threshold
 
-        # 确保索引已构建
-        if self.mode == "vector" and not self._index_built:
+        # 确保索引已构建（仅首次 unknown 才构建；ok/empty/schema_degraded/build_failed 等终态不在热路径重试）
+        if self.mode == "vector" and self._index_status == "unknown":
             try:
                 self.build_index()
             except Exception as e:
-                logger.error(f"索引构建失败: {e}")
+                self._index_status = "build_failed"
+                self._index_degraded_reason = f"build_index_exception:{e}"
+                logger.error(f"索引构建失败: {e}", exc_info=True)
 
         # 运行混合检索
         try:
@@ -529,11 +571,21 @@ class HybridRAGEngine:
         retriever = KeywordRetriever()
         return retriever.retrieve(query, top_k=top_k)
 
+    def index_health(self) -> Dict[str, Any]:
+        """索引健康状态——让 retrieval_gateway 无论检索结果空否都读得到故障信号。"""
+        return {
+            "status": self._index_status,
+            "degraded_reason": self._index_degraded_reason,
+            "index_built": self._index_built,
+        }
+
     def get_stats(self) -> Dict[str, Any]:
         """获取引擎统计信息"""
         stats = {
             "mode": self.mode,
             "index_built": self._index_built,
+            "index_status": self._index_status,
+            "index_degraded_reason": self._index_degraded_reason,
             "config": {
                 "vector_backend": self.vector_backend,
                 "recall_top_n": self.recall_top_n,

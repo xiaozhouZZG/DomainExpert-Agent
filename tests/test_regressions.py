@@ -1,6 +1,4 @@
-import json
 import sqlite3
-import threading
 
 
 def test_ensure_tables_creates_operational_columns(tmp_path, monkeypatch):
@@ -174,39 +172,9 @@ def test_hybrid_rag_engine_initializes_mode_when_components_are_stubbed(monkeypa
     assert engine.get_stats()["mode"] == "vector"
 
 
-def test_xianyu_send_reply_tool_creates_approval_before_write(tmp_path, monkeypatch):
-    from database import connection
-    from tools.xianyu import send_xianyu_reply
-
-    db_path = tmp_path / "platform.db"
-    monkeypatch.setattr(connection, "DB_PATH", str(db_path))
-    monkeypatch.setenv("LISTING_PLATFORM", "goofish")
-    connection.ensure_tables()
-
-    threading.current_thread().current_customer_id = "CUST001"
-    threading.current_thread().session_id = "session-1"
-    threading.current_thread().trace_id = "trace-1"
-
-    payload = send_xianyu_reply.invoke(
-        {
-            "conversation_id": "conv-1",
-            "content": "您好，可以小刀。",
-        }
-    )
-    result = json.loads(payload)
-
-    assert result["status"] == "approval_required"
-    assert result["approval_id"]
-
-    conn = sqlite3.connect(db_path)
-    try:
-        row = conn.execute(
-            "SELECT workflow_type, customer_id, session_id, trace_id FROM approvals WHERE approval_id = ?",
-            (result["approval_id"],),
-        ).fetchone()
-        assert row == ("xianyu_send_reply", "CUST001", "session-1", "trace-1")
-    finally:
-        conn.close()
+# 子项3: 已删除 test_xianyu_send_reply_tool_creates_approval_before_write
+# —— 旧契约"send 写前建审批单"被 send 解耦推翻; 新契约见
+#    test_approval_gate.py::test_send_decoupled_no_approval_record
 
 
 def test_xianyu_service_ingests_messages_and_classifies_intent(tmp_path, monkeypatch):

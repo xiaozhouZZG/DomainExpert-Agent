@@ -88,8 +88,7 @@ def send_reply(conversation_id: str, buyer_name: str, text: str) -> dict[str, An
             result = platform.send_reply(
                 conversation_id=conversation_id,
                 content=text,
-                approval_id="test",  # 测试号绕过审批
-                target=buyer_name,
+                target=buyer_name,   # ②子项3: 拔 approval_id="test"(send 已解耦, 护栏在白名单+decide_reply)
             )
 
             send_status = result.get("status", "failed")

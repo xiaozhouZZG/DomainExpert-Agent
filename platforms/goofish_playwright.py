@@ -967,9 +967,8 @@ class GoofishPlaywrightPlatform:
         Returns:
             {"status": "sent", ...} 或 {"status": "failed", "uncertain"...}
         """
-        if not approval_id:
-            return {"status": "approval_required", "action": "send_reply"}
-
+        # ②子项3: send 解耦审批——护栏在 get_unread(白名单)+decide_reply(敏感词/三段式)/①鉴权;
+        # approval_id 形参保留但忽略(兼容 adapter/tools/test-send/agent 调用点签名)。
         def action(page):
             import time
 

@@ -107,3 +107,29 @@ def test_list_approvals_returns_pending_only_with_fields(tmp_db):
     assert a["order_id"] == "ORDER_X"
     for f in ("title", "content", "amount", "created_at"):
         assert f in a                                  # 字段全
+
+
+# ===== 子项3: send 解耦——不再建审批单 =====
+
+def test_send_decoupled_no_approval_record(tmp_db, monkeypatch):
+    """send_xianyu_reply 解耦后不建单: 不返回 approval_required, approvals 表无 xianyu_send_reply 单。"""
+    import json as _json
+    from tools import xianyu as xtools
+
+    class _FakePlatform:
+        def send_reply(self, conversation_id, content, approval_id=None, target=None):
+            return {"status": "sent"}
+    monkeypatch.setattr(xtools, "_get_platform", lambda: _FakePlatform())
+
+    out = _json.loads(xtools.send_xianyu_reply.invoke({"conversation_id": "c1", "content": "你好"}))
+    assert out.get("status") != "approval_required"      # 不再走建单分支
+    assert out.get("status") == "sent"                   # 直接发(护栏在上层)
+
+    conn = connection.get_db_connection()
+    try:
+        n = conn.execute(
+            "SELECT COUNT(*) FROM approvals WHERE workflow_type='xianyu_send_reply'"
+        ).fetchone()[0]
+    finally:
+        conn.close()
+    assert n == 0                                        # send 不建单, 审批队列纯净

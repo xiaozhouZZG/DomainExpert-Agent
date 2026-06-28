@@ -292,8 +292,7 @@ def handle_buyer_message(conv: dict) -> dict[str, Any]:
     send_result = platform.send_reply(
         conversation_id=conversation_id,
         content=reply_text,
-        approval_id="test",  # 测试号绕过审批
-        target=buyer_name,
+        target=buyer_name,   # ②子项3: 拔 approval_id="test"(死函数, 清后门字面量)
     )
 
     send_status = send_result.get("status", "failed")

@@ -14,7 +14,6 @@ from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 
 from core.xianyu_service import (
-    attach_approval,
     list_listings,
     persist_competitor_observations,
     persist_listing_snapshots,
@@ -273,26 +272,8 @@ def send_xianyu_reply(
     content: str,
     approval_id: Optional[str] = None,
 ) -> str:
-    """发送闲鱼回复。没有 approval_id 时仅创建审批单。"""
-    if not approval_id:
-        new_approval_id = _create_platform_approval(
-            workflow_type="xianyu_send_reply",
-            title=f"发送闲鱼回复: {conversation_id}",
-            content=content,
-        )
-        try:
-            attach_approval(conversation_id, new_approval_id)
-        except ValueError:
-            pass
-        return json.dumps(
-            {
-                "status": "approval_required",
-                "approval_id": new_approval_id,
-                "action": "send_reply",
-            },
-            ensure_ascii=False,
-        )
-
+    """发送闲鱼回复。②子项3: 解耦审批不建单, 直接发(护栏在上层: 自动走白名单+decide_reply, 手动经①鉴权)。
+    approval_id 保留但忽略, 兼容 /send-reply 端点与 agent 工具现有签名。"""
     result = _get_platform().send_reply(conversation_id, content, approval_id)
     return json.dumps(result, ensure_ascii=False)
 

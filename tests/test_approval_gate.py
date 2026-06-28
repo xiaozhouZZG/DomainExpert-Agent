@@ -87,3 +87,23 @@ def test_no_revive_rejected(tmp_db):
 def test_nonexistent_approval(tmp_db):
     assert xianyu_service.is_approval_approved("nope", "xianyu_list_item") is False
     assert xianyu_service.set_approval_status("nope", "approved", expect_current="pending") is False
+
+
+# ===== 子项2: GET /api/admin/approvals 列明细端点 =====
+
+def test_list_approvals_returns_pending_only_with_fields(tmp_db):
+    """端点逻辑: 只返 pending + 字段全(含 amount/approval_id/order_id)。"""
+    import asyncio
+    from api import admin
+    _insert("p1", "xianyu_list_item", "pending")
+    _insert("p2", "xianyu_ship_order", "pending", order_id="ORDER_X")
+    _insert("done", "xianyu_list_item", "approved")     # 非 pending, 不应返回
+    result = asyncio.run(admin.list_approvals(status="pending"))
+    ids = [a["approval_id"] for a in result["approvals"]]
+    assert "p1" in ids and "p2" in ids
+    assert "done" not in ids                            # 只返 pending
+    a = next(x for x in result["approvals"] if x["approval_id"] == "p2")
+    assert a["workflow_type"] == "xianyu_ship_order"
+    assert a["order_id"] == "ORDER_X"
+    for f in ("title", "content", "amount", "created_at"):
+        assert f in a                                  # 字段全

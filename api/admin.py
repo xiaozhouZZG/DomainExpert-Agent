@@ -1367,3 +1367,21 @@ async def reject_approval(approval_id: str):
     if not ok:
         raise HTTPException(status_code=409, detail="审批单不存在或非 pending 状态，无法拒绝")
     return {"status": "rejected", "approval_id": approval_id}
+
+
+@router.get("/approvals")
+async def list_approvals(status: str = "pending"):
+    """列审批单明细(默认 pending)。受 ①verify_token 保护(admin_router include 层)。"""
+    conn = get_db_connection()
+    try:
+        rows = conn.execute(
+            "SELECT approval_id, workflow_type, title, content, amount, order_id, created_at "
+            "FROM approvals WHERE status = ? ORDER BY created_at DESC LIMIT 100",
+            (status,),
+        ).fetchall()
+        return {"status": status, "approvals": [
+            {"approval_id": r[0], "workflow_type": r[1], "title": r[2], "content": r[3],
+             "amount": r[4], "order_id": r[5], "created_at": r[6]} for r in rows
+        ]}
+    finally:
+        conn.close()

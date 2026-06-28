@@ -53,6 +53,7 @@ function boot() {   // 原两个 DOMContentLoaded 的初始化, 验证通过后�
         refreshAutoReplyStatus();
         refreshAutoReplyFeed();
         loadPendingHandoffs();
+        loadApprovals();          // ②子项2: 审批队列
     }, 500);
 }
 
@@ -1021,6 +1022,62 @@ async function loadPendingHandoffs() {
         listEl.innerHTML = html;
     } catch (e) {
         console.error('loadPendingHandoffs error:', e);
+    }
+}
+
+// ==================== 审批队列(②子项2) ====================
+
+async function loadApprovals() {
+    try {
+        const result = await api('/api/admin/approvals?status=pending');
+        const listEl = document.getElementById('approval-list');
+        const items = result.approvals || [];
+        if (items.length === 0) {
+            listEl.innerHTML = '<div style="color:var(--text-muted,#666); text-align:center; padding:20px;">暂无待审批动作</div>';
+            return;
+        }
+        const typeLabel = { 'xianyu_list_item': '商品上架', 'xianyu_ship_order': '订单发货', 'xianyu_send_reply': '发送回复' };
+        let html = '';
+        items.forEach(a => {
+            const safeId = escapeHtml(a.approval_id);
+            const t = (a.created_at || '').substring(11, 19);
+            html += `
+                <div style="padding:10px; border-bottom:1px solid var(--border-color,#333);">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                        <span style="font-weight:600; font-size:13px;">${escapeHtml(typeLabel[a.workflow_type] || a.workflow_type || '')}</span>
+                        <span style="font-size:11px; color:var(--text-muted,#666);">${escapeHtml(t)}</span>
+                    </div>
+                    <div style="font-size:12px; color:#aaa; margin-bottom:4px;">${escapeHtml(a.title || '')}${a.order_id ? ' · 订单 ' + escapeHtml(a.order_id) : ''}${a.amount != null ? ' · ¥' + escapeHtml(String(a.amount)) : ''}</div>
+                    <div style="font-size:12px; color:#888; margin-bottom:8px; padding:6px 8px; background:var(--bg-primary,#252536); border-radius:4px; word-break:break-all;">${escapeHtml(a.content || '')}</div>
+                    <div style="display:flex; gap:6px;">
+                        <button onclick="approveApproval('${safeId}')" style="flex:1; background:#4ade80; color:#000; border:none; border-radius:4px; padding:4px 12px; font-size:12px; cursor:pointer;">批准</button>
+                        <button onclick="rejectApproval('${safeId}')" style="flex:1; background:#ff6644; color:#fff; border:none; border-radius:4px; padding:4px 12px; font-size:12px; cursor:pointer;">拒绝</button>
+                    </div>
+                </div>`;
+        });
+        listEl.innerHTML = html;
+    } catch (e) {
+        console.error('loadApprovals error:', e);
+    }
+}
+
+async function approveApproval(id) {
+    try {
+        await api('/api/admin/approvals/' + encodeURIComponent(id) + '/approve', { method: 'POST' });
+    } catch (e) {
+        alert('批准失败，该单可能已被处理');
+    } finally {
+        loadApprovals();   // 命门: 无论成败都刷到真实状态(防并发已处理点了没反应)
+    }
+}
+
+async function rejectApproval(id) {
+    try {
+        await api('/api/admin/approvals/' + encodeURIComponent(id) + '/reject', { method: 'POST' });
+    } catch (e) {
+        alert('拒绝失败，该单可能已被处理');
+    } finally {
+        loadApprovals();
     }
 }
 

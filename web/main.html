@@ -111,6 +111,17 @@
                     </div>
                 </div>
 
+                <!-- 审批队列(②子项2): 待人工批准的 list/ship 动作 -->
+                <div style="margin:0 20px 16px; background:var(--bg-secondary,#1e1e2e); border-radius:10px; border:1px solid var(--border-color,#333);">
+                    <div style="padding:10px 14px; border-bottom:1px solid var(--border-color,#333); font-weight:600; font-size:14px; color:#e0e0e0; display:flex; justify-content:space-between; align-items:center;">
+                        <span>待审批动作（上架 / 发货）</span>
+                        <button onclick="loadApprovals()" style="background:none; border:1px solid var(--border-color,#555); border-radius:4px; padding:2px 8px; font-size:12px; color:var(--text-secondary,#aaa); cursor:pointer;">刷新</button>
+                    </div>
+                    <div id="approval-list" style="max-height:300px; overflow-y:auto; font-size:13px;">
+                        <div style="color:var(--text-muted,#666); text-align:center; padding:20px;">暂无待审批动作</div>
+                    </div>
+                </div>
+
                 <div class="module-body">
                     <div id="conversations-container" class="conversations-list">
                         <div class="loading">点击"刷新消息"加载会话列表</div>

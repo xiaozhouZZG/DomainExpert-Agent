@@ -321,6 +321,13 @@ def list_xianyu_item(item_json: str, approval_id: Optional[str] = None) -> str:
             ensure_ascii=False,
         )
 
+    from core.xianyu_service import is_approval_approved
+    if not is_approval_approved(approval_id, "xianyu_list_item"):
+        return json.dumps(
+            {"status": "rejected", "action": "list_item",
+             "detail": "审批单未通过或动作类型不匹配"},
+            ensure_ascii=False,
+        )
     item = json.loads(item_json)
     result = _get_platform().list_item(item, approval_id)
     return json.dumps(result, ensure_ascii=False)
@@ -356,6 +363,13 @@ def ship_xianyu_order(
             ensure_ascii=False,
         )
 
+    from core.xianyu_service import is_approval_approved
+    if not is_approval_approved(approval_id, "xianyu_ship_order", order_id=order_id):
+        return json.dumps(
+            {"status": "rejected", "action": "ship_order",
+             "detail": "审批单未通过/动作类型不匹配/订单号不匹配"},
+            ensure_ascii=False,
+        )
     shipment = json.loads(shipment_json)
     result = _get_platform().ship_order(order_id, shipment, approval_id)
     return json.dumps(result, ensure_ascii=False)

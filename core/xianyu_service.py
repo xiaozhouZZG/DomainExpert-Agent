@@ -472,3 +472,47 @@ def _to_float(value: Any) -> Optional[float]:
         return float(cleaned)
     except (TypeError, ValueError):
         return None
+
+
+# ==================== 审批闭环 (②子项1) ====================
+
+def is_approval_approved(approval_id: str, expected_workflow_type: str, *, order_id: Optional[str] = None) -> bool:
+    """审批通过校验: status='approved' + 动作类型匹配 + (ship)订单号匹配，
+    防 approved 单跨动作(list↔ship)/跨对象(订单A↔B)挪用。"""
+    conn = get_db_connection()
+    try:
+        row = conn.execute(
+            "SELECT status, workflow_type, order_id FROM approvals WHERE approval_id = ?",
+            (approval_id,),
+        ).fetchone()
+        if not row:
+            return False
+        status, wf_type, row_order_id = row[0], row[1], row[2]
+        return (
+            status == "approved"
+            and wf_type == expected_workflow_type
+            and (order_id is None or row_order_id == order_id)
+        )
+    finally:
+        conn.close()
+
+
+def set_approval_status(approval_id: str, status: str, *, expect_current: Optional[str] = None) -> bool:
+    """更新审批单状态; expect_current 非空时只在当前状态匹配才更新(防重复批准/复活已拒单)。"""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        if expect_current is not None:
+            cursor.execute(
+                "UPDATE approvals SET status = ? WHERE approval_id = ? AND status = ?",
+                (status, approval_id, expect_current),
+            )
+        else:
+            cursor.execute(
+                "UPDATE approvals SET status = ? WHERE approval_id = ?",
+                (status, approval_id),
+            )
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()

@@ -1217,6 +1217,10 @@ class GoofishPlaywrightPlatform:
     ) -> Dict[str, Any]:
         if not approval_id:
             return {"status": "approval_required", "action": "list_item"}
+        from core.xianyu_service import is_approval_approved
+        if not is_approval_approved(approval_id, "xianyu_list_item"):
+            return {"status": "rejected", "action": "list_item",
+                    "detail": "审批单未通过或动作类型不匹配"}
         return {"status": "not_implemented", "reason": "selectors_need_confirmation"}
 
     def delist_item(
@@ -1236,6 +1240,10 @@ class GoofishPlaywrightPlatform:
     ) -> Dict[str, Any]:
         if not approval_id:
             return {"status": "approval_required", "action": "ship_order"}
+        from core.xianyu_service import is_approval_approved
+        if not is_approval_approved(approval_id, "xianyu_ship_order", order_id=order_id):
+            return {"status": "rejected", "action": "ship_order",
+                    "detail": "审批单未通过/动作类型不匹配/订单号不匹配"}
         return {"status": "not_implemented", "reason": "selectors_need_confirmation"}
 
     def inspect_publish_form(self) -> Dict[str, Any]:

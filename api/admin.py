@@ -1345,3 +1345,25 @@ async def shadow_pipeline_db_check(buyer_name: str = "海王星上蹿下跳的�
     except Exception as e:
         logger.exception("shadow_pipeline_db_check failed")
         return {"status": "error", "detail": str(e)}
+
+
+# ==================== ②审批闭环: 批准 / 拒绝 (子项1) ====================
+
+@router.post("/approvals/{approval_id}/approve")
+async def approve_approval(approval_id: str):
+    """批准审批单 (pending → approved)。受全站鉴权(①verify_token)保护。"""
+    from core.xianyu_service import set_approval_status
+    ok = set_approval_status(approval_id, "approved", expect_current="pending")
+    if not ok:
+        raise HTTPException(status_code=409, detail="审批单不存在或非 pending 状态，无法批准")
+    return {"status": "approved", "approval_id": approval_id}
+
+
+@router.post("/approvals/{approval_id}/reject")
+async def reject_approval(approval_id: str):
+    """拒绝审批单 (pending → rejected)。"""
+    from core.xianyu_service import set_approval_status
+    ok = set_approval_status(approval_id, "rejected", expect_current="pending")
+    if not ok:
+        raise HTTPException(status_code=409, detail="审批单不存在或非 pending 状态，无法拒绝")
+    return {"status": "rejected", "approval_id": approval_id}
